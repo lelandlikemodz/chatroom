@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROOMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08090a;
+    --surface: #111214;
+    --surface2: #1a1c1f;
+    --border: #252729;
+    --accent: #39ff9c;
+    --warn: #ff6b35;
+    --text: #e8eaed;
+    --muted: #555;
+    --muted2: #888;
+    --r: 3px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* LOBBY */
+  #lobby {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    gap: 2.5rem;
+  }
+  .logo { text-align: center; }
+  .logo h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 9vw, 5.5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo p {
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+  .lobby-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    max-width: 700px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .panel { background: var(--surface); padding: 1.75rem; }
+  .panel-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .panel-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .field { margin-bottom: 0.85rem; }
+  .field label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    border-radius: var(--r);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(57,255,156,0.08);
+  }
+  .field input::placeholder { color: var(--muted); }
+
+  .btn {
+    width: 100%;
+    padding: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+    margin-top: 0.4rem;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-create { background: var(--accent); color: #040505; }
+  .btn-create:not(:disabled):hover { background: #5fffb4; box-shadow: 0 0 20px rgba(57,255,156,0.25); }
+  .btn-join { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-join:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+  .rooms-row {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    padding: 1.25rem 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .rooms-row h3 {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 0.75rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.35rem 0.8rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted2);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip .dot { width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2s infinite; }
+  .no-rooms { font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); }
+
+  /* FOOTER BAR */
+  .lobby-footer {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .footer-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+  }
+  .footer-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .footer-btn.warn:hover { border-color: var(--warn); color: var(--warn); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translateX(-50%) translateY(5rem);
+    padding: 0.55rem 1.1rem;
+    font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    border-radius: var(--r);
+    transition: transform 0.3s cubic-bezier(.16,1,.3,1);
+    z-index: 10000; pointer-events: none;
+    background: var(--warn); color: #fff;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--accent); color: #040505; }
+
+  /* CHATROOM */
+  #chatroom { display: none; flex-direction: column; height: 100vh; }
+  .chat-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; gap: 1rem;
+    flex-shrink: 0;
+  }
+  .hroom { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:800; color:var(--accent); letter-spacing:-0.02em; }
+  .hmeta { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--muted); border-left:1px solid var(--border); padding-left:1rem; }
+  .honline { margin-left:auto; display:flex; align-items:center; gap:0.4rem; font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--accent); }
+  .honline .dot { width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2s infinite; }
+  .btn-leave {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:0.3rem 0.7rem; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s;
+  }
+  .btn-leave:hover { border-color:var(--warn); color:var(--warn); }
+
+  /* chat header extra buttons */
+  .btn-hdr {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:0.3rem 0.7rem; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s;
+  }
+  .btn-hdr:hover { border-color:var(--accent); color:var(--accent); }
+
+  .msgs {
+    flex:1; overflow-y:auto; padding:1.25rem 1.5rem;
+    display:flex; flex-direction:column; gap:0.2rem;
+  }
+  .msgs::-webkit-scrollbar { width:3px; }
+  .msgs::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .msg { display:flex; flex-direction:column; max-width:62%; animation:slideUp 0.18s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .msg.mine { align-self:flex-end; align-items:flex-end; }
+  .msg.theirs { align-self:flex-start; align-items:flex-start; }
+  .msg .meta { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); margin-bottom:0.2rem; padding:0 0.15rem; }
+  .msg .bubble { padding:0.6rem 0.9rem; font-size:0.88rem; line-height:1.55; word-break:break-word; border-radius:var(--r); }
+  .msg.mine .bubble { background:var(--accent); color:#040505; border-bottom-right-radius:0; font-weight:500; }
+  .msg.theirs .bubble { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-bottom-left-radius:0; }
+  .msg.system { align-self:center; }
+  .msg.system .bubble { background:none; border:none; color:var(--muted); font-family:'Space Mono',monospace; font-size:0.6rem; padding:0.2rem 0.5rem; text-align:center; }
+  .status-row { align-self:center; font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); padding:2rem; }
+
+  .input-bar {
+    background:var(--surface); border-top:1px solid var(--border);
+    padding:0.9rem 1.5rem; display:flex; gap:0.65rem; align-items:center; flex-shrink:0;
+  }
+  .ubadge { font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--warn); white-space:nowrap; flex-shrink:0; }
+  #msgInput {
+    flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:0.6rem 0.9rem; font-family:'DM Sans',sans-serif; font-size:0.88rem;
+    outline:none; border-radius:var(--r); transition:border-color 0.15s;
+  }
+  #msgInput:focus { border-color:var(--accent); }
+  #msgInput::placeholder { color:var(--muted); }
+  #msgInput:disabled { opacity:0.4; }
+  .btn-send {
+    background:var(--accent); color:#040505; border:none; padding:0.6rem 1.1rem;
+    font-family:'Space Mono',monospace; font-size:0.7rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s; flex-shrink:0;
+  }
+  .btn-send:hover:not(:disabled) { background:#5fffb4; }
+  .btn-send:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+
+  /* ── MODALS ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 20000;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    width: 100%;
+    max-width: 480px;
+    margin: 1rem;
+    transform: translateY(12px);
+    transition: transform 0.2s cubic-bezier(.16,1,.3,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .modal-close {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+    padding: 0.2rem 0.5rem; border-radius: var(--r);
+    transition: color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 1.5rem; }
+
+  /* CREDITS */
+  .credits-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: linear-gradient(135deg, var(--text) 30%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1;
+    margin-bottom: 0.4rem;
+  }
+  .credits-role {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+  .credits-divider {
+    height: 1px; background: var(--border); margin: 1.2rem 0;
+  }
+  .credits-line {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted2);
+    letter-spacing: 0.06em;
+    margin-bottom: 0.4rem;
+  }
+  .credits-line span { color: var(--text); }
+
+  /* SETTINGS */
+  .settings-section {
+    margin-bottom: 1.5rem;
+  }
+  .settings-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.9rem;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .setting-desc {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted2);
+    line-height: 1.5;
+  }
+  .setting-desc strong { color: var(--text); display: block; font-size: 0.68rem; margin-bottom: 0.1rem; }
+
+  /* Hotkey recorder */
+  .hotkey-recorder {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .key-display {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 0.35rem 0.7rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    min-width: 90px;
+    text-align: center;
+    transition: border-color 0.15s;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .key-display.recording {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(57,255,156,0.12);
+    color: var(--warn);
+    animation: pulse 0.9s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .key-clear {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 0.55rem; text-transform: uppercase;
+    padding: 0.3rem 0.5rem; cursor: pointer; border-radius: var(--r); transition: all 0.15s;
+  }
+  .key-clear:hover { border-color: var(--warn); color: var(--warn); }
+
+  .panic-url-row {
+    margin-top: 0.75rem;
+  }
+  .panic-url-row label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .panic-url-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    outline: none;
+    border-radius: var(--r);
+    transition: border-color 0.15s;
+  }
+  .panic-url-input:focus { border-color: var(--accent); }
+  .panic-url-input::placeholder { color: var(--muted); }
+
+  .panic-mode-row {
+    display: flex; gap: 0.5rem; margin-top: 0.75rem;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 0.45rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+  }
+  .mode-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(57,255,156,0.06); }
+
+  .save-btn {
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 0.65rem;
+    background: var(--accent);
+    color: #040505;
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+  }
+  .save-btn:hover { background: #5fffb4; }
+
+  /* panic indicator in footer */
+  .panic-indicator {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  .panic-indicator .pk { color: var(--accent); }
+
+  @media(max-width:580px) {
+    .lobby-wrap { grid-template-columns:1fr; }
+    .msg { max-width:85%; }
+    .setting-row { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="logo">
+    <h1>ROOMS</h1>
+    <p>real-time · password-protected · multi-device</p>
+  </div>
+  <div class="lobby-wrap">
+    <div class="panel">
+      <div class="panel-label">Create Room</div>
+      <div class="field"><label>Room Name</label>
+        <input id="cName" placeholder="e.g. night-crew" maxlength="30"/></div>
+      <div class="field"><label>Password</label>
+        <input id="cPass" type="password" placeholder="set a password"/></div>
+      <div class="field"><label>Your Name</label>
+        <input id="cUser" placeholder="display name" maxlength="20"/></div>
+      <button class="btn btn-create" id="btnCreate">Create &amp; Enter →</button>
+    </div>
+    <div class="panel">
+      <div class="panel-label">Join Room</div>
+      <div class="field"><label>Room Name</label>
+        <input id="jName" placeholder="exact room name" maxlength="30"/></div>
+      <div class="field"><label>Password</label>
+        <input id="jPass" type="password" placeholder="room password"/></div>
+      <div class="field"><label>Your Name</label>
+        <input id="jUser" placeholder="display name" maxlength="20"/></div>
+      <button class="btn btn-join" id="btnJoin">Join Room →</button>
+    </div>
+    <div class="rooms-row">
+      <h3>// Active Rooms</h3>
+      <div class="chips" id="chips"><span class="no-rooms">Loading…</span></div>
+    </div>
+  </div>
+
+  <!-- footer actions -->
+  <div class="lobby-footer">
+    <button class="footer-btn" id="btnOpenCredits">Credits</button>
+    <button class="footer-btn warn" id="btnReportBugLobby">Report Bug</button>
+    <button class="footer-btn" id="btnOpenSettings">⚙ Panic Key</button>
+    <span class="panic-indicator" id="lobbyPanicIndicator"></span>
+  </div>
+</div>
+
+<!-- CHATROOM -->
+<div id="chatroom">
+  <div class="chat-header">
+    <div class="hroom" id="hRoom">—</div>
+    <div class="hmeta" id="hMeta">connecting…</div>
+    <div class="honline"><div class="dot"></div><span id="hOnline">1</span> online</div>
+    <button class="btn-hdr" id="btnReportBugChat">Bug</button>
+    <button class="btn-hdr" id="btnOpenSettingsChat">⚙</button>
+    <button class="btn-leave" id="btnLeave">Leave</button>
+  </div>
+  <div class="msgs" id="msgs"><div class="status-row">connecting to firebase…</div></div>
+  <div class="input-bar">
+    <span class="ubadge" id="uBadge">you</span>
+    <input type="text" id="msgInput" placeholder="say something…" maxlength="500" autocomplete="off" disabled/>
+    <button class="btn-send" id="btnSend" disabled>Send</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ── CREDITS MODAL ── -->
+<div class="modal-overlay" id="creditsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Credits</h2>
+      <button class="modal-close" id="creditsClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="credits-name">Leland</div>
+      <div class="credits-role">Creator &amp; Developer</div>
+      <div class="credits-divider"></div>
+      <div class="credits-line">App &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span>ROOMS</span></div>
+      <div class="credits-line">Stack &nbsp;&nbsp;&nbsp; <span>HTML · Firebase Realtime DB</span></div>
+      <div class="credits-line">Fonts &nbsp;&nbsp;&nbsp; <span>Syne · Space Mono · DM Sans</span></div>
+      <div class="credits-divider"></div>
+      <div class="credits-line" style="color:var(--muted);font-size:0.58rem;">Built with passion. All rights reserved.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SETTINGS MODAL ── -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Panic Key Settings</h2>
+      <button class="modal-close" id="settingsClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="settings-section">
+        <div class="settings-label">⚡ Hotkey</div>
+        <div class="setting-row">
+          <div class="setting-desc">
+            <strong>Panic Key Combo</strong>
+            Click the key display, then press your desired keys simultaneously.
+          </div>
+          <div class="hotkey-recorder">
+            <div class="key-display" id="keyDisplay" title="Click to record hotkey">0 + 9</div>
+            <button class="key-clear" id="keyClear">clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">🚀 Action</div>
+        <div class="setting-desc" style="margin-bottom:0.6rem;">
+          <strong>What happens when triggered?</strong>
+        </div>
+        <div class="panic-mode-row">
+          <button class="mode-btn active" id="modeOpen" data-mode="open">Open URL</button>
+          <button class="mode-btn" id="modeClose" data-mode="close">Close Tab</button>
+        </div>
+        <div class="panic-url-row" id="urlRow">
+          <label>Redirect URL</label>
+          <input class="panic-url-input" id="panicUrl" placeholder="https://google.com" />
+        </div>
+      </div>
+
+      <button class="save-btn" id="saveSettings">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getDatabase, ref, set, get, push, onValue, off, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ── YOUR FIREBASE CONFIG ─────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
+  authDomain: "project-50a73.firebaseapp.com",
+  databaseURL: "https://project-50a73-default-rtdb.firebaseio.com",
+  projectId: "project-50a73",
+  storageBucket: "project-50a73.firebasestorage.app",
+  messagingSenderId: "395823874797",
+  appId: "1:395823874797:web:a408782869b31984a342e4"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ── HELPERS ──────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type='error') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'success' ? ' success' : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function hashPass(p) {
+  return btoa(unescape(encodeURIComponent(p)));
+}
+
+// ── PANIC KEY ─────────────────────────────────────────────────
+let panicConfig = {
+  keys: new Set(['0','9']),   // default: 0+9
+  mode: 'open',               // 'open' | 'close'
+  url: 'https://google.com'
+};
+
+// Load from localStorage
+function loadPanicConfig() {
+  try {
+    const saved = localStorage.getItem('panicConfig');
+    if (saved) {
+      const p = JSON.parse(saved);
+      panicConfig.keys = new Set(p.keys || ['0','9']);
+      panicConfig.mode = p.mode || 'open';
+      panicConfig.url = p.url || 'https://google.com';
+    }
+  } catch(e) {}
+}
+
+function savePanicConfig() {
+  localStorage.setItem('panicConfig', JSON.stringify({
+    keys: [...panicConfig.keys],
+    mode: panicConfig.mode,
+    url: panicConfig.url
+  }));
+}
+
+function panicKeyLabel() {
+  return [...panicConfig.keys].join(' + ') || 'none';
+}
+
+function updatePanicIndicator() {
+  const el = document.getElementById('lobbyPanicIndicator');
+  if (!el) return;
+  if (panicConfig.keys.size === 0) {
+    el.innerHTML = '';
+  } else {
+    el.innerHTML = `panic: <span class="pk">${panicKeyLabel()}</span>`;
+  }
+}
+
+// Panic key listener — track which keys are currently held
+const heldKeys = new Set();
+let panicFired = false;
+
+document.addEventListener('keydown', e => {
+  heldKeys.add(e.key.toLowerCase());
+  if (panicConfig.keys.size === 0 || isRecording) return;
+  const required = new Set([...panicConfig.keys].map(k => k.toLowerCase()));
+  const allHeld = [...required].every(k => heldKeys.has(k));
+  if (allHeld && !panicFired) {
+    panicFired = true;
+    triggerPanic();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  heldKeys.delete(e.key.toLowerCase());
+  panicFired = false;
+});
+
+function triggerPanic() {
+  if (panicConfig.mode === 'close') {
+    window.close();
+    // fallback if window.close() is blocked
+    document.body.innerHTML = '';
+    window.location.href = 'about:blank';
+  } else {
+    window.location.href = panicConfig.url || 'https://google.com';
+  }
+}
+
+// ── HOTKEY RECORDER ──────────────────────────────────────────
+let isRecording = false;
+let recordedKeys = new Set();
+const keyDisplay = document.getElementById('keyDisplay');
+
+function startRecording() {
+  isRecording = true;
+  recordedKeys = new Set();
+  keyDisplay.classList.add('recording');
+  keyDisplay.textContent = 'press keys…';
+}
+
+function stopRecording() {
+  isRecording = false;
+  keyDisplay.classList.remove('recording');
+  if (recordedKeys.size > 0) {
+    keyDisplay.textContent = [...recordedKeys].join(' + ');
+  } else {
+    keyDisplay.textContent = panicKeyLabel() || 'click to set';
+  }
+}
+
+keyDisplay.addEventListener('click', () => {
+  if (isRecording) { stopRecording(); return; }
+  startRecording();
+});
+
+document.addEventListener('keydown', e => {
+  if (!isRecording) return;
+  e.preventDefault();
+  // Ignore pure modifier-only presses from being the sole key
+  const key = e.key;
+  recordedKeys.add(key);
+  keyDisplay.textContent = [...recordedKeys].join(' + ');
+});
+
+document.addEventListener('keyup', e => {
+  if (!isRecording) return;
+  // Stop recording once all keys are released
+  if (recordedKeys.size > 0) stopRecording();
+});
+
+document.getElementById('keyClear').addEventListener('click', () => {
+  recordedKeys = new Set();
+  keyDisplay.textContent = 'none';
+  isRecording = false;
+  keyDisplay.classList.remove('recording');
+});
+
+// ── SETTINGS MODAL ───────────────────────────────────────────
+let currentPanicMode = panicConfig.mode;
+
+function openSettings() {
+  // Sync UI to current config
+  keyDisplay.textContent = panicKeyLabel() || 'click to set';
+  document.getElementById('panicUrl').value = panicConfig.url;
+  currentPanicMode = panicConfig.mode;
+  updateModeButtons();
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function closeSettings() {
+  if (isRecording) stopRecording();
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function updateModeButtons() {
+  document.getElementById('modeOpen').classList.toggle('active', currentPanicMode === 'open');
+  document.getElementById('modeClose').classList.toggle('active', currentPanicMode === 'close');
+  document.getElementById('urlRow').style.display = currentPanicMode === 'open' ? '' : 'none';
+}
+
+document.getElementById('modeOpen').addEventListener('click', () => {
+  currentPanicMode = 'open'; updateModeButtons();
+});
+document.getElementById('modeClose').addEventListener('click', () => {
+  currentPanicMode = 'close'; updateModeButtons();
+});
+
+document.getElementById('saveSettings').addEventListener('click', () => {
+  // Apply recorded keys
+  if (recordedKeys.size > 0) {
+    panicConfig.keys = new Set(recordedKeys);
+  } else if (keyDisplay.textContent === 'none') {
+    panicConfig.keys = new Set();
+  }
+  panicConfig.mode = currentPanicMode;
+  panicConfig.url = document.getElementById('panicUrl').value.trim() || 'https://google.com';
+  savePanicConfig();
+  updatePanicIndicator();
+  closeSettings();
+  toast('Panic key saved!', 'success');
+});
+
+document.getElementById('btnOpenSettings').addEventListener('click', openSettings);
+document.getElementById('btnOpenSettingsChat').addEventListener('click', openSettings);
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('settingsOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settingsOverlay')) closeSettings();
+});
+
+// ── CREDITS MODAL ────────────────────────────────────────────
+function openCredits() {
+  document.getElementById('creditsOverlay').classList.add('open');
+}
+function closeCredits() {
+  document.getElementById('creditsOverlay').classList.remove('open');
+}
+document.getElementById('btnOpenCredits').addEventListener('click', openCredits);
+document.getElementById('creditsClose').addEventListener('click', closeCredits);
+document.getElementById('creditsOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('creditsOverlay')) closeCredits();
+});
+
+// ── REPORT BUG ───────────────────────────────────────────────
+function reportBug() {
+  const subject = encodeURIComponent('Bug Report — ROOMS');
+  const body = encodeURIComponent('Describe the bug:\n\n\nSteps to reproduce:\n\n\nExpected behavior:\n\n');
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  toast('Opening bug report…', 'success');
+}
+document.getElementById('btnReportBugLobby').addEventListener('click', reportBug);
+document.getElementById('btnReportBugChat').addEventListener('click', reportBug);
+
+// ── LOBBY ────────────────────────────────────────────────────
+async function loadChips() {
+  const snap = await get(ref(db, 'rooms'));
+  const el = document.getElementById('chips');
+  if (!snap.exists()) {
+    el.innerHTML = '<span class="no-rooms">No rooms yet — create one!</span>';
+    return;
+  }
+  const rooms = snap.val();
+  el.innerHTML = Object.entries(rooms).map(([name, data]) => {
+    const count = data.msgCount || 0;
+    return `<div class="chip" data-room="${esc(name)}">
+      <div class="dot"></div>${esc(name)}
+      <span style="opacity:.4;font-size:.6rem">${count} msg${count!==1?'s':''}</span>
+    </div>`;
+  }).join('') || '<span class="no-rooms">No rooms yet — create one!</span>';
+
+  el.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.getElementById('jName').value = chip.dataset.room;
+      document.getElementById('jPass').focus();
+    });
+  });
+}
+
+function setLoading(on) {
+  ['btnCreate','btnJoin'].forEach(id => {
+    document.getElementById(id).disabled = on;
+  });
+  document.getElementById('btnCreate').textContent = on ? 'Working…' : 'Create & Enter →';
+  document.getElementById('btnJoin').textContent = on ? 'Working…' : 'Join Room →';
+}
+
+async function createRoom() {
+  const name = document.getElementById('cName').value.trim().toLowerCase().replace(/\s+/g,'-');
+  const pass = document.getElementById('cPass').value;
+  const user = document.getElementById('cUser').value.trim();
+  if (!name) return toast('Room name required');
+  if (!/^[a-z0-9\-]+$/.test(name)) return toast('Letters, numbers, hyphens only');
+  if (!pass) return toast('Password required');
+  if (!user) return toast('Your name required');
+
+  setLoading(true);
+  const snap = await get(ref(db, 'rooms/' + name));
+  if (snap.exists()) { setLoading(false); return toast(`"${name}" already exists — join it`); }
+
+  await set(ref(db, 'rooms/' + name), {
+    h: hashPass(pass),
+    created: Date.now(),
+    msgCount: 0
+  });
+  setLoading(false);
+  enterRoom(name, user);
+};
+
+async function joinRoom() {
+  const name = document.getElementById('jName').value.trim().toLowerCase().replace(/\s+/g,'-');
+  const pass = document.getElementById('jPass').value;
+  const user = document.getElementById('jUser').value.trim();
+  if (!name) return toast('Room name required');
+  if (!pass) return toast('Password required');
+  if (!user) return toast('Your name required');
+
+  setLoading(true);
+  const snap = await get(ref(db, 'rooms/' + name));
+  if (!snap.exists()) { setLoading(false); return toast(`Room "${name}" not found`); }
+  if (snap.val().h !== hashPass(pass)) { setLoading(false); return toast('Wrong password'); }
+
+  setLoading(false);
+  enterRoom(name, user);
+};
+
+// ── CHAT ─────────────────────────────────────────────────────
+let currentRoom = null, currentUser = null, msgListener = null;
+
+function enterRoom(roomName, username) {
+  currentRoom = roomName;
+  currentUser = username;
+
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('chatroom').style.display = 'flex';
+  document.getElementById('hRoom').textContent = '#' + roomName;
+  document.getElementById('uBadge').textContent = username;
+  document.getElementById('msgInput').disabled = false;
+  document.getElementById('btnSend').disabled = false;
+  document.getElementById('msgInput').focus();
+
+  const msgsRef = ref(db, 'messages/' + roomName);
+  msgListener = onValue(msgsRef, snap => {
+    const msgs = [];
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const val = child.val();
+        if (val && val.ts) msgs.push({ id: child.key, ...val });
+      });
+      msgs.sort((a, b) => a.ts - b.ts);
+    }
+    renderMsgs(msgs);
+  });
+
+  pushMsg({ type: 'system', text: username + ' joined' });
+}
+
+async function leaveRoom() {
+  if (msgListener) {
+    off(ref(db, 'messages/' + currentRoom));
+    msgListener = null;
+  }
+  await pushMsg({ type: 'system', text: currentUser + ' left' });
+
+  currentRoom = null; currentUser = null;
+
+  document.getElementById('chatroom').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  document.getElementById('msgInput').disabled = true;
+  document.getElementById('btnSend').disabled = true;
+  ['cName','cPass','cUser','jPass','jUser'].forEach(id => document.getElementById(id).value = '');
+  loadChips();
+};
+
+async function pushMsg(m) {
+  if (!currentRoom) return;
+  await push(ref(db, 'messages/' + currentRoom), { ...m, ts: Date.now() });
+  const countRef = ref(db, 'rooms/' + currentRoom + '/msgCount');
+  const snap = await get(countRef);
+  await set(countRef, (snap.exists() ? snap.val() : 0) + 1);
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text || !currentRoom) return;
+  input.value = '';
+  input.focus();
+  await pushMsg({ type: 'user', user: currentUser, text });
+};
+
+let lastMsgCount = 0;
+
+function renderMsgs(msgs) {
+  const wrap = document.getElementById('msgs');
+  const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 100;
+  const isNew = msgs.length > lastMsgCount;
+  lastMsgCount = msgs.length;
+
+  document.getElementById('hMeta').textContent = `${msgs.length} message${msgs.length!==1?'s':''}`;
+  calcOnline(msgs);
+
+  wrap.innerHTML = msgs.length ? msgs.map(m => {
+    if (m.type === 'system')
+      return `<div class="msg system"><div class="bubble">— ${esc(m.text)} —</div></div>`;
+    const mine = m.user === currentUser;
+    const time = new Date(m.ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    return `<div class="msg ${mine?'mine':'theirs'}">
+      <div class="meta">${mine ? '' : esc(m.user) + ' · '}${time}</div>
+      <div class="bubble">${esc(m.text)}</div>
+    </div>`;
+  }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
+
+  if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
+}
+
+function calcOnline(msgs) {
+  const cutoff = Date.now() - 8 * 60000;
+  const s = new Set();
+  msgs.forEach(m => {
+    if (m.type === 'user' && m.ts > cutoff) s.add(m.user);
+    if (m.type === 'system' && m.ts > cutoff) {
+      const x = m.text.match(/^(.+) joined$/);
+      if (x) s.add(x[1]);
+    }
+  });
+  if (currentUser) s.add(currentUser);
+  document.getElementById('hOnline').textContent = Math.max(1, s.size);
+}
+
+// ── WIRE BUTTONS ─────────────────────────────────────────────
+document.getElementById('btnCreate').addEventListener('click', createRoom);
+document.getElementById('btnJoin').addEventListener('click', joinRoom);
+document.getElementById('btnLeave').addEventListener('click', leaveRoom);
+document.getElementById('btnSend').addEventListener('click', sendMsg);
+
+// ── KEYBOARD ─────────────────────────────────────────────────
+document.getElementById('msgInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+['cName','cPass','cUser'].forEach((id,i,a) => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key==='Enter') i < a.length-1
+      ? document.getElementById(a[i+1]).focus()
+      : createRoom();
+  });
+});
+['jName','jPass','jUser'].forEach((id,i,a) => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key==='Enter') i < a.length-1
+      ? document.getElementById(a[i+1]).focus()
+      : joinRoom();
+  });
+});
+
+// ── INIT ─────────────────────────────────────────────────────
+loadPanicConfig();
+updatePanicIndicator();
+loadChips();
+setInterval(loadChips, 10000);
+</script>
+</body>
+</html>
