@@ -198,6 +198,72 @@
   .auth-status.err { display: block; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.3); color: var(--warn); }
   .auth-status.ok { display: block; background: rgba(57,255,156,0.08); border: 1px solid rgba(57,255,156,0.25); color: var(--accent); }
 
+  /* verification panel */
+  .verify-panel {
+    display: none;
+    padding: 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .verify-panel.active { display: block; }
+  .verify-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  .verify-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    margin-bottom: 1.2rem;
+    line-height: 1.6;
+  }
+  .verify-sub span { color: var(--text); }
+  .code-inputs {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .code-digit {
+    width: 58px; height: 64px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    caret-color: transparent;
+  }
+  .code-digit:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(57,255,156,0.1);
+  }
+  .code-digit.filled { border-color: rgba(57,255,156,0.5); }
+  .code-digit.wrong { border-color: var(--warn); animation: shake 0.3s ease; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-4px)} 40%,80%{transform:translateX(4px)}
+  }
+  .verify-resend {
+    background: none; border: none; color: var(--muted2);
+    font-family: 'Space Mono', monospace; font-size: 0.6rem;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    transition: color 0.15s; display: block; margin: 0.5rem auto 0; text-align: center;
+  }
+  .verify-resend:hover { color: var(--accent); }
+  .verify-resend:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
+  .dev-code-hint {
+    font-family: 'Space Mono', monospace; font-size: 0.58rem;
+    color: var(--muted); text-align: center; margin-top: 0.5rem; letter-spacing: 0.1em;
+  }
+  .dev-code-hint span { color: var(--warn); letter-spacing: 0.2em; }
+
   /* strength meter */
   .strength-bar {
     height: 3px;
@@ -591,6 +657,20 @@
       </div>
       <button class="btn btn-primary" id="btnSignUp">Create Account →</button>
     </div>
+
+    <!-- VERIFICATION PANEL -->
+    <div class="verify-panel" id="verifyPanel">
+      <div class="verify-title">// Verify Email</div>
+      <div class="verify-sub">Enter the 3-digit code sent to <span id="verifyEmailDisplay">—</span></div>
+      <div class="auth-status" id="verifyStatus"></div>
+      <div class="code-inputs">
+        <input class="code-digit" id="vd0" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="code-digit" id="vd1" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="code-digit" id="vd2" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+      </div>
+      <div class="dev-code-hint" id="devCodeHint" style="display:none"></div>
+      <button class="verify-resend" id="btnResend">Resend code</button>
+    </div>
   </div>
 </div>
 
@@ -735,6 +815,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// ── CONFIG ───────────────────────────────────────────────────
+// ⚠️  Replace with your real Resend API key from resend.com/api-keys
+const RESEND_API_KEY = 're_P61bXpae_P6UqBg1zwo4a2w6q61LFDDf6'; // ← REPLACE THIS
+
 // ── CRYPTO HELPERS ───────────────────────────────────────────
 // Real SHA-256 hashing via Web Crypto API
 async function sha256(str) {
@@ -858,6 +942,161 @@ function clearSession() {
 }
 
 // ── AUTH ACTIONS ─────────────────────────────────────────────
+// pending signup state
+let pendingSignup = null; // { email, name, pass, code }
+
+function generateVerifyCode() {
+  return String(Math.floor(100 + Math.random() * 900)); // 3-digit: 100–999
+}
+
+async function sendVerificationEmail(email, code) {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + RESEND_API_KEY
+      },
+      body: JSON.stringify({
+        from: 'onboarding@resend.dev',
+        to: email,
+        subject: 'Your ROOMS verification code',
+        html: `
+          <div style="background:#08090a;color:#e8eaed;font-family:monospace;padding:2rem;border-radius:6px;max-width:400px">
+            <h2 style="color:#39ff9c;letter-spacing:-0.03em;margin:0 0 0.5rem">ROOMS</h2>
+            <p style="color:#888;font-size:0.75rem;margin:0 0 1.5rem;text-transform:uppercase;letter-spacing:0.15em">Email Verification</p>
+            <p style="margin:0 0 1rem;font-size:0.9rem">Your verification code is:</p>
+            <div style="background:#1a1c1f;border:1px solid #252729;border-radius:4px;padding:1.25rem;text-align:center;margin-bottom:1.5rem">
+              <span style="font-size:2.5rem;font-weight:800;color:#39ff9c;letter-spacing:0.3em">${code}</span>
+            </div>
+            <p style="color:#555;font-size:0.75rem;margin:0">This code expires once used. Do not share it.</p>
+          </div>
+        `
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || data.name || 'Send failed');
+    return true;
+  } catch(e) {
+    console.error('Email send error:', e);
+    return false;
+  }
+}
+
+async function showVerifyPanel(email, code) {
+  document.getElementById('verifyEmailDisplay').textContent = email;
+  document.getElementById('verifyPanel').classList.add('active');
+  // clear digits
+  ['vd0','vd1','vd2'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+    el.classList.remove('filled','wrong');
+  });
+  clearVerifyStatus();
+  setVerifyStatus('Sending code to ' + email + '…', 'ok');
+  const sent = await sendVerificationEmail(email, code);
+  if (sent) {
+    clearVerifyStatus();
+  } else {
+    setVerifyStatus('Could not send email. Check your RESEND_API_KEY in the code.');
+  }
+  document.getElementById('vd0').focus();
+}
+
+function hideVerifyPanel() {
+  document.getElementById('verifyPanel').classList.remove('active');
+  pendingSignup = null;
+}
+
+function clearVerifyStatus() {
+  const el = document.getElementById('verifyStatus');
+  el.textContent = ''; el.className = 'auth-status';
+}
+function setVerifyStatus(msg, type='err') {
+  const el = document.getElementById('verifyStatus');
+  el.textContent = msg;
+  el.className = 'auth-status ' + (type === 'ok' ? 'ok' : 'err');
+}
+
+// Digit input navigation
+['vd0','vd1','vd2'].forEach((id, i) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    // only allow digits
+    el.value = el.value.replace(/[^0-9]/g,'').slice(-1);
+    el.classList.toggle('filled', el.value !== '');
+    el.classList.remove('wrong');
+    if (el.value && i < 2) document.getElementById('vd' + (i+1)).focus();
+    // auto-submit when all 3 filled
+    const all = ['vd0','vd1','vd2'].map(x => document.getElementById(x).value).join('');
+    if (all.length === 3) submitVerifyCode(all);
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !el.value && i > 0) document.getElementById('vd' + (i-1)).focus();
+    if (e.key === 'ArrowLeft' && i > 0) document.getElementById('vd' + (i-1)).focus();
+    if (e.key === 'ArrowRight' && i < 2) document.getElementById('vd' + (i+1)).focus();
+  });
+  // allow paste of 3-digit code into first box
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g,'').slice(0,3);
+    if (pasted.length === 3) {
+      ['vd0','vd1','vd2'].forEach((xid, xi) => {
+        const x = document.getElementById(xid);
+        x.value = pasted[xi];
+        x.classList.add('filled');
+      });
+      submitVerifyCode(pasted);
+    }
+  });
+});
+
+async function submitVerifyCode(entered) {
+  if (!pendingSignup) return;
+  if (entered !== pendingSignup.code) {
+    ['vd0','vd1','vd2'].forEach(id => {
+      const el = document.getElementById(id);
+      el.classList.add('wrong');
+      setTimeout(() => el.classList.remove('wrong'), 400);
+    });
+    setVerifyStatus('Incorrect code. Try again.');
+    // clear and refocus
+    setTimeout(() => {
+      ['vd0','vd1','vd2'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).classList.remove('filled'); });
+      document.getElementById('vd0').focus();
+    }, 400);
+    return;
+  }
+
+  // Code correct — create account
+  setVerifyStatus('Verified! Creating your account…', 'ok');
+  try {
+    const { email, name, pass } = pendingSignup;
+    const key = emailToKey(email);
+    const salt = generateSalt();
+    const hashed = await hashPassword(pass, salt);
+    await set(ref(db, 'accounts/' + key), { email, displayName: name, salt, ph: hashed, created: Date.now() });
+    saveSession(email, name);
+    setTimeout(() => { hideVerifyPanel(); enterLobby(); }, 700);
+  } catch(e) {
+    setVerifyStatus('Something went wrong. Please try again.');
+    console.error(e);
+  }
+}
+
+document.getElementById('btnResend').addEventListener('click', async () => {
+  if (!pendingSignup) return;
+  const newCode = generateVerifyCode();
+  pendingSignup.code = newCode;
+  ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.value=''; el.classList.remove('filled','wrong'); });
+  clearVerifyStatus();
+  setVerifyStatus('Resending…', 'ok');
+  const sent = await sendVerificationEmail(pendingSignup.email, newCode);
+  if (sent) { clearVerifyStatus(); toast('New code sent!', 'success'); }
+  else { setVerifyStatus('Failed to resend. Please try again.'); }
+  document.getElementById('vd0').focus();
+});
+
 async function doSignUp() {
   const email = document.getElementById('suEmail').value.trim().toLowerCase();
   const name = document.getElementById('suName').value.trim();
@@ -873,7 +1112,7 @@ async function doSignUp() {
   if (pass !== passConf) return setAuthStatus('suStatus', 'Passwords do not match.');
 
   const btn = document.getElementById('btnSignUp');
-  btn.disabled = true; btn.textContent = 'Creating…';
+  btn.disabled = true; btn.textContent = 'Checking…';
 
   try {
     const key = emailToKey(email);
@@ -883,20 +1122,11 @@ async function doSignUp() {
       return;
     }
 
-    const salt = generateSalt();
-    const hashed = await hashPassword(pass, salt);
-
-    await set(ref(db, 'accounts/' + key), {
-      email,
-      displayName: name,
-      salt,
-      ph: hashed,
-      created: Date.now()
-    });
-
-    setAuthStatus('suStatus', 'Account created! Signing you in…', 'ok');
-    saveSession(email, name);
-    setTimeout(() => enterLobby(), 900);
+    // Generate code and show verification panel
+    const code = generateVerifyCode();
+    pendingSignup = { email, name, pass, code };
+    setAuthStatus('suStatus', 'Sending verification code…', 'ok');
+    await showVerifyPanel(email, code);
   } catch(e) {
     setAuthStatus('suStatus', 'Something went wrong. Please try again.');
     console.error(e);
