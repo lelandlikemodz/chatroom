@@ -17,6 +17,9 @@
     --muted: #555;
     --muted2: #888;
     --r: 3px;
+    --owner: #ffd700;
+    --mod: #4fc3f7;
+    --vip: #ce93d8;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -71,7 +74,6 @@
     overflow: hidden;
   }
 
-  /* Tab switcher */
   .auth-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -181,11 +183,7 @@
   .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
   .btn-secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
 
-  .auth-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 1.25rem 0;
-  }
+  .auth-divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
 
   .auth-status {
     font-family: 'Space Mono', monospace;
@@ -198,7 +196,6 @@
   .auth-status.err { display: block; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.3); color: var(--warn); }
   .auth-status.ok { display: block; background: rgba(57,255,156,0.08); border: 1px solid rgba(57,255,156,0.25); color: var(--accent); }
 
-  /* verification panel */
   .verify-panel {
     display: none;
     padding: 1.75rem;
@@ -241,15 +238,10 @@
     transition: border-color 0.15s, box-shadow 0.15s;
     caret-color: transparent;
   }
-  .code-digit:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 2px rgba(57,255,156,0.1);
-  }
+  .code-digit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(57,255,156,0.1); }
   .code-digit.filled { border-color: rgba(57,255,156,0.5); }
   .code-digit.wrong { border-color: var(--warn); animation: shake 0.3s ease; }
-  @keyframes shake {
-    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-4px)} 40%,80%{transform:translateX(4px)}
-  }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-4px)} 40%,80%{transform:translateX(4px)} }
   .verify-resend {
     background: none; border: none; color: var(--muted2);
     font-family: 'Space Mono', monospace; font-size: 0.6rem;
@@ -258,28 +250,43 @@
   }
   .verify-resend:hover { color: var(--accent); }
   .verify-resend:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
-  .dev-code-hint {
-    font-family: 'Space Mono', monospace; font-size: 0.58rem;
-    color: var(--muted); text-align: center; margin-top: 0.5rem; letter-spacing: 0.1em;
-  }
-  .dev-code-hint span { color: var(--warn); letter-spacing: 0.2em; }
 
-  /* strength meter */
-  .strength-bar {
-    height: 3px;
-    background: var(--border);
-    border-radius: 2px;
-    margin-top: 0.4rem;
-    overflow: hidden;
-  }
-  .strength-fill {
-    height: 100%;
-    width: 0%;
-    border-radius: 2px;
-    transition: width 0.3s, background 0.3s;
-  }
+  .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+  .strength-fill { height: 100%; width: 0%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
 
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── ROLE BADGES ── */
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
+  }
+  .badge-owner {
+    background: rgba(255,215,0,0.12);
+    border: 1px solid rgba(255,215,0,0.4);
+    color: var(--owner);
+  }
+  .badge-mod {
+    background: rgba(79,195,247,0.1);
+    border: 1px solid rgba(79,195,247,0.35);
+    color: var(--mod);
+  }
+  .badge-vip {
+    background: rgba(206,147,216,0.1);
+    border: 1px solid rgba(206,147,216,0.35);
+    color: var(--vip);
+  }
 
   /* LOBBY */
   #lobby {
@@ -420,12 +427,7 @@
   }
   .footer-btn:hover { border-color: var(--accent); color: var(--accent); }
   .footer-btn.warn:hover { border-color: var(--warn); color: var(--warn); }
-  .panic-indicator {
-    font-family: 'Space Mono', monospace;
-    font-size: 0.58rem;
-    color: var(--muted);
-    letter-spacing: 0.06em;
-  }
+  .panic-indicator { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); letter-spacing:0.06em; }
   .panic-indicator .pk { color: var(--accent); }
 
   /* TOAST */
@@ -470,6 +472,8 @@
     transition:all 0.15s;
   }
   .btn-hdr:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-hdr.owner-btn { border-color: rgba(255,215,0,0.3); color: var(--owner); }
+  .btn-hdr.owner-btn:hover { border-color: var(--owner); box-shadow: 0 0 10px rgba(255,215,0,0.15); }
 
   .msgs {
     flex:1; overflow-y:auto; padding:1.25rem 1.5rem;
@@ -482,13 +486,18 @@
   @keyframes slideUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
   .msg.mine { align-self:flex-end; align-items:flex-end; }
   .msg.theirs { align-self:flex-start; align-items:flex-start; }
-  .msg .meta { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); margin-bottom:0.2rem; padding:0 0.15rem; }
+  .msg .meta { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); margin-bottom:0.2rem; padding:0 0.15rem; display:flex; align-items:center; gap:0.3rem; flex-wrap:wrap; }
   .msg .bubble { padding:0.6rem 0.9rem; font-size:0.88rem; line-height:1.55; word-break:break-word; border-radius:var(--r); }
   .msg.mine .bubble { background:var(--accent); color:#040505; border-bottom-right-radius:0; font-weight:500; }
   .msg.theirs .bubble { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-bottom-left-radius:0; }
   .msg.system { align-self:center; }
   .msg.system .bubble { background:none; border:none; color:var(--muted); font-family:'Space Mono',monospace; font-size:0.6rem; padding:0.2rem 0.5rem; text-align:center; }
   .status-row { align-self:center; font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); padding:2rem; }
+
+  /* owner message highlight */
+  .msg.is-owner .bubble { border-left: 2px solid var(--owner); }
+  .msg.is-mod .bubble { border-left: 2px solid var(--mod); }
+  .msg.is-vip .bubble { border-left: 2px solid var(--vip); }
 
   .input-bar {
     background:var(--surface); border-top:1px solid var(--border);
@@ -546,6 +555,7 @@
     text-transform: uppercase;
     color: var(--accent);
   }
+  .modal-head h2.owner-title { color: var(--owner); }
   .modal-close {
     background: none; border: none; color: var(--muted); cursor: pointer;
     font-family: 'Space Mono', monospace; font-size: 0.7rem;
@@ -555,13 +565,7 @@
   .modal-body { padding: 1.5rem; }
 
   /* CREDITS */
-  .credits-name {
-    font-family: 'Syne', sans-serif; font-size: 2.8rem; font-weight: 800;
-    letter-spacing: -0.04em;
-    background: linear-gradient(135deg, var(--text) 30%, var(--accent));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    line-height: 1; margin-bottom: 0.4rem;
-  }
+  .credits-name { font-family:'Syne',sans-serif; font-size:2.8rem; font-weight:800; letter-spacing:-0.04em; background:linear-gradient(135deg,var(--text) 30%,var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; line-height:1; margin-bottom:0.4rem; }
   .credits-role { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--accent); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:1.5rem; }
   .credits-divider { height:1px; background:var(--border); margin:1.2rem 0; }
   .credits-line { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--muted2); letter-spacing:0.06em; margin-bottom:0.4rem; }
@@ -574,12 +578,7 @@
   .setting-desc { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--muted2); line-height:1.5; }
   .setting-desc strong { color:var(--text); display:block; font-size:0.68rem; margin-bottom:0.1rem; }
   .hotkey-recorder { display:flex; align-items:center; gap:0.5rem; flex-shrink:0; }
-  .key-display {
-    background:var(--surface2); border:1px solid var(--border); border-radius:var(--r);
-    padding:0.35rem 0.7rem; font-family:'Space Mono',monospace; font-size:0.65rem;
-    color:var(--accent); min-width:90px; text-align:center; transition:border-color 0.15s;
-    cursor:pointer; white-space:nowrap;
-  }
+  .key-display { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:0.35rem 0.7rem; font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--accent); min-width:90px; text-align:center; transition:border-color 0.15s; cursor:pointer; white-space:nowrap; }
   .key-display.recording { border-color:var(--accent); box-shadow:0 0 0 2px rgba(57,255,156,0.12); color:var(--warn); animation:pulse 0.9s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
   .key-clear { background:none; border:1px solid var(--border); color:var(--muted); font-family:'Space Mono',monospace; font-size:0.55rem; text-transform:uppercase; padding:0.3rem 0.5rem; cursor:pointer; border-radius:var(--r); transition:all 0.15s; }
@@ -594,6 +593,69 @@
   .mode-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(57,255,156,0.06); }
   .save-btn { width:100%; margin-top:1.25rem; padding:0.65rem; background:var(--accent); color:#040505; border:none; font-family:'Space Mono',monospace; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; cursor:pointer; border-radius:var(--r); transition:all 0.15s; }
   .save-btn:hover { background:#5fffb4; }
+
+  /* ROLES MODAL */
+  .roles-info {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    margin-bottom: 1.2rem;
+    line-height: 1.7;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255,215,0,0.04);
+    border: 1px solid rgba(255,215,0,0.15);
+    border-radius: var(--r);
+  }
+  .role-legend { display: flex; gap: 0.6rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .role-legend-item { display: flex; align-items: center; gap: 0.4rem; font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted2); }
+  .roles-section-label { font-family:'Space Mono',monospace; font-size:0.58rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:0.6rem; margin-top:1rem; }
+  .role-field-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+  .role-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 0.5rem 0.75rem; font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; outline: none; border-radius: var(--r); transition: border-color 0.15s;
+  }
+  .role-input:focus { border-color: var(--accent); }
+  .role-input::placeholder { color: var(--muted); }
+  .role-select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 0.6rem; font-family: 'Space Mono', monospace; font-size: 0.68rem;
+    outline: none; border-radius: var(--r); cursor: pointer; transition: border-color 0.15s;
+  }
+  .role-select:focus { border-color: var(--accent); }
+  .role-assign-btn {
+    padding: 0.5rem 0.85rem; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3);
+    color: var(--owner); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s; white-space: nowrap;
+  }
+  .role-assign-btn:hover { background: rgba(255,215,0,0.18); border-color: var(--owner); }
+  .role-remove-btn {
+    padding: 0.5rem 0.85rem; background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.25);
+    color: var(--warn); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s; white-space: nowrap;
+  }
+  .role-remove-btn:hover { background: rgba(255,107,53,0.15); border-color: var(--warn); }
+  .roles-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; }
+  .roles-list::-webkit-scrollbar { width: 3px; }
+  .roles-list::-webkit-scrollbar-thumb { background: var(--border); }
+  .role-list-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.45rem 0.7rem; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--r); gap: 0.5rem;
+  }
+  .role-list-email { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--muted2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .role-list-actions { display:flex; align-items:center; gap:0.4rem; flex-shrink:0; }
+  .role-remove-x {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; padding:0.2rem 0.5rem;
+    cursor:pointer; border-radius:var(--r); transition:all 0.15s;
+  }
+  .role-remove-x:hover { border-color:var(--warn); color:var(--warn); }
+  .roles-status { font-family:'Space Mono',monospace; font-size:0.6rem; margin-top:0.6rem; padding:0.4rem 0.7rem; border-radius:var(--r); display:none; }
+  .roles-status.ok { display:block; background:rgba(57,255,156,0.08); border:1px solid rgba(57,255,156,0.25); color:var(--accent); }
+  .roles-status.err { display:block; background:rgba(255,107,53,0.1); border:1px solid rgba(255,107,53,0.3); color:var(--warn); }
 
   @media(max-width:580px) {
     .lobby-wrap { grid-template-columns:1fr; }
@@ -668,7 +730,6 @@
         <input class="code-digit" id="vd1" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
         <input class="code-digit" id="vd2" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
       </div>
-      <div class="dev-code-hint" id="devCodeHint" style="display:none"></div>
       <button class="verify-resend" id="btnResend">Resend code</button>
     </div>
   </div>
@@ -681,6 +742,7 @@
     <div class="user-pill">
       <div class="dot"></div>
       signed in as <span id="loggedInEmail">—</span>
+      <span id="lobbyRoleBadge"></span>
       <button class="btn-pill-signout" id="btnSignOut">sign out</button>
     </div>
   </div>
@@ -726,6 +788,7 @@
     <div class="honline"><div class="dot"></div><span id="hOnline">1</span> online</div>
     <button class="btn-hdr" id="btnReportBugChat">Bug</button>
     <button class="btn-hdr" id="btnOpenSettingsChat">⚙</button>
+    <button class="btn-hdr owner-btn" id="btnManageRoles" style="display:none">👑 Roles</button>
     <button class="btn-leave" id="btnLeave">Leave</button>
   </div>
   <div class="msgs" id="msgs"><div class="status-row">connecting to firebase…</div></div>
@@ -796,10 +859,48 @@
   </div>
 </div>
 
+<!-- ROLES MODAL (owner only) -->
+<div class="modal-overlay" id="rolesOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="owner-title">👑 Manage Roles</h2>
+      <button class="modal-close" id="rolesClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="roles-info">
+        You are the <strong style="color:var(--owner)">OWNER</strong> of ROOMS. Assign mod or VIP roles to users by their email address. Roles are stored permanently in Firebase.
+      </div>
+      <div class="role-legend">
+        <div class="role-legend-item"><span class="role-badge badge-owner">👑 Owner</span> — you</div>
+        <div class="role-legend-item"><span class="role-badge badge-mod">🛡 Mod</span> — moderator</div>
+        <div class="role-legend-item"><span class="role-badge badge-vip">⭐ VIP</span> — special user</div>
+      </div>
+
+      <div class="roles-section-label">Assign Role</div>
+      <div class="role-field-row">
+        <input class="role-input" id="roleEmail" placeholder="user@email.com" type="email"/>
+        <select class="role-select" id="roleSelect">
+          <option value="mod">🛡 Mod</option>
+          <option value="vip">⭐ VIP</option>
+        </select>
+        <button class="role-assign-btn" id="btnAssignRole">Assign</button>
+      </div>
+      <div class="role-field-row">
+        <input class="role-input" id="roleRemoveEmail" placeholder="remove role from email…" type="email"/>
+        <button class="role-remove-btn" id="btnRemoveRole">Remove</button>
+      </div>
+      <div class="roles-status" id="rolesStatus"></div>
+
+      <div class="roles-section-label">Current Roles</div>
+      <div class="roles-list" id="rolesList"><span style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span></div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getDatabase, ref, set, get, push, onValue, off, serverTimestamp
+  getDatabase, ref, set, get, push, onValue, off, serverTimestamp, remove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -815,21 +916,20 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// ── CONFIG ───────────────────────────────────────────────────
 const WORKER_URL = 'https://dawn-lab-9a85.lb6486262.workers.dev/';
 
+// ── OWNER CONFIG (hardcoded — cannot be changed by anyone) ───
+const OWNER_EMAIL = 'lb6486262@gmail.com';
+
 // ── CRYPTO HELPERS ───────────────────────────────────────────
-// Real SHA-256 hashing via Web Crypto API
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Hash password with per-user salt (PBKDF2)
 async function hashPassword(password, salt) {
   const keyMaterial = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(password),
-    'PBKDF2', false, ['deriveBits']
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
   );
   const bits = await crypto.subtle.deriveBits(
     { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash: 'SHA-256' },
@@ -842,15 +942,50 @@ function generateSalt() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// Email → safe Firebase key (base64 of email, strip chars Firebase disallows)
 function emailToKey(email) {
   return btoa(email.toLowerCase().trim()).replace(/[.#$/[\]]/g, '_');
 }
 
-// Room password: SHA-256 (simpler, no PII involved)
-async function hashRoomPass(p) {
-  return sha256(p);
+async function hashRoomPass(p) { return sha256(p); }
+
+// ── ROLE HELPERS ─────────────────────────────────────────────
+function getRole(email) {
+  if (!email) return null;
+  if (email.toLowerCase().trim() === OWNER_EMAIL) return 'owner';
+  return null; // will be fetched from Firebase
 }
+
+async function fetchRole(email) {
+  if (!email) return null;
+  const e = email.toLowerCase().trim();
+  if (e === OWNER_EMAIL) return 'owner';
+  try {
+    const key = emailToKey(e);
+    const snap = await get(ref(db, 'roles/' + key));
+    return snap.exists() ? snap.val() : null;
+  } catch(err) { return null; }
+}
+
+function roleBadgeHTML(role) {
+  if (!role) return '';
+  if (role === 'owner') return '<span class="role-badge badge-owner">👑 Owner</span>';
+  if (role === 'mod')   return '<span class="role-badge badge-mod">🛡 Mod</span>';
+  if (role === 'vip')   return '<span class="role-badge badge-vip">⭐ VIP</span>';
+  return '';
+}
+
+// Cache of email→role to avoid repeated Firebase reads in chat rendering
+const roleCache = {};
+
+async function getRoleForUser(username, email) {
+  // In chat we only have username, not email.
+  // We store email→role in roleCache keyed by email.
+  // For message rendering we look up by username via a username→email map built at login.
+  return roleCache[username] || null;
+}
+
+// username → role map (built when users send messages — we store role in messages)
+const userRoleMap = {};
 
 // ── HELPERS ──────────────────────────────────────────────────
 function esc(s) {
@@ -871,8 +1006,7 @@ function setAuthStatus(formId, msg, type='err') {
 }
 function clearAuthStatus(formId) {
   const el = document.getElementById(formId);
-  el.textContent = '';
-  el.className = 'auth-status';
+  el.textContent = ''; el.className = 'auth-status';
 }
 
 // ── TAB SWITCHER ─────────────────────────────────────────────
@@ -881,8 +1015,7 @@ function switchTab(tab) {
   document.getElementById('tabSignUp').classList.toggle('active', tab === 'signup');
   document.getElementById('formSignIn').classList.toggle('active', tab === 'signin');
   document.getElementById('formSignUp').classList.toggle('active', tab === 'signup');
-  clearAuthStatus('siStatus');
-  clearAuthStatus('suStatus');
+  clearAuthStatus('siStatus'); clearAuthStatus('suStatus');
 }
 document.getElementById('tabSignIn').addEventListener('click', () => switchTab('signin'));
 document.getElementById('tabSignUp').addEventListener('click', () => switchTab('signup'));
@@ -898,7 +1031,6 @@ document.getElementById('suPass').addEventListener('input', function() {
   if (/[A-Z]/.test(v)) score++;
   if (/[0-9]/.test(v)) score++;
   if (/[^A-Za-z0-9]/.test(v)) score++;
-
   const pct = Math.min(100, score * 20);
   fill.style.width = pct + '%';
   fill.style.background = score <= 1 ? '#ff6b35' : score <= 3 ? '#f0c040' : '#39ff9c';
@@ -911,17 +1043,12 @@ document.getElementById('suPassConf').addEventListener('input', function() {
   const pass = document.getElementById('suPass').value;
   const hint = document.getElementById('confHint');
   if (!this.value) { hint.textContent = ''; return; }
-  if (this.value !== pass) {
-    hint.textContent = 'Passwords do not match';
-    hint.className = 'field-hint err';
-  } else {
-    hint.textContent = '✓ Passwords match';
-    hint.className = 'field-hint';
-  }
+  if (this.value !== pass) { hint.textContent = 'Passwords do not match'; hint.className = 'field-hint err'; }
+  else { hint.textContent = '✓ Passwords match'; hint.className = 'field-hint'; }
 });
 
 // ── SESSION ──────────────────────────────────────────────────
-let currentSession = null; // { email, displayName }
+let currentSession = null; // { email, displayName, role }
 
 function loadSession() {
   try {
@@ -930,8 +1057,8 @@ function loadSession() {
   } catch(e) {}
 }
 
-function saveSession(email, displayName) {
-  currentSession = { email, displayName };
+function saveSession(email, displayName, role) {
+  currentSession = { email, displayName, role: role || null };
   sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
 }
 
@@ -941,74 +1068,45 @@ function clearSession() {
 }
 
 // ── AUTH ACTIONS ─────────────────────────────────────────────
-// pending signup state
-let pendingSignup = null; // { email, name, pass, code }
+let pendingSignup = null;
 
-function generateVerifyCode() {
-  return String(Math.floor(100 + Math.random() * 900)); // 3-digit: 100–999
-}
+function generateVerifyCode() { return String(Math.floor(100 + Math.random() * 900)); }
 
 async function sendVerificationEmail(email, code) {
   try {
     const res = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: email, code })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Send failed');
     return true;
-  } catch(e) {
-    console.error('Email send error:', e);
-    return false;
-  }
+  } catch(e) { console.error('Email send error:', e); return false; }
 }
 
 async function showVerifyPanel(email, code) {
   document.getElementById('verifyEmailDisplay').textContent = email;
   document.getElementById('verifyPanel').classList.add('active');
-  // clear digits
-  ['vd0','vd1','vd2'].forEach(id => {
-    const el = document.getElementById(id);
-    el.value = '';
-    el.classList.remove('filled','wrong');
-  });
+  ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.value = ''; el.classList.remove('filled','wrong'); });
   clearVerifyStatus();
   setVerifyStatus('Sending code to ' + email + '…', 'ok');
   const sent = await sendVerificationEmail(email, code);
-  if (sent) {
-    clearVerifyStatus();
-  } else {
-    setVerifyStatus('Could not send email. Check your RESEND_API_KEY in the code.');
-  }
+  if (sent) clearVerifyStatus();
+  else setVerifyStatus('Could not send email.');
   document.getElementById('vd0').focus();
 }
 
-function hideVerifyPanel() {
-  document.getElementById('verifyPanel').classList.remove('active');
-  pendingSignup = null;
-}
+function hideVerifyPanel() { document.getElementById('verifyPanel').classList.remove('active'); pendingSignup = null; }
+function clearVerifyStatus() { const el = document.getElementById('verifyStatus'); el.textContent = ''; el.className = 'auth-status'; }
+function setVerifyStatus(msg, type='err') { const el = document.getElementById('verifyStatus'); el.textContent = msg; el.className = 'auth-status ' + (type === 'ok' ? 'ok' : 'err'); }
 
-function clearVerifyStatus() {
-  const el = document.getElementById('verifyStatus');
-  el.textContent = ''; el.className = 'auth-status';
-}
-function setVerifyStatus(msg, type='err') {
-  const el = document.getElementById('verifyStatus');
-  el.textContent = msg;
-  el.className = 'auth-status ' + (type === 'ok' ? 'ok' : 'err');
-}
-
-// Digit input navigation
 ['vd0','vd1','vd2'].forEach((id, i) => {
   const el = document.getElementById(id);
   el.addEventListener('input', () => {
-    // only allow digits
     el.value = el.value.replace(/[^0-9]/g,'').slice(-1);
     el.classList.toggle('filled', el.value !== '');
     el.classList.remove('wrong');
     if (el.value && i < 2) document.getElementById('vd' + (i+1)).focus();
-    // auto-submit when all 3 filled
     const all = ['vd0','vd1','vd2'].map(x => document.getElementById(x).value).join('');
     if (all.length === 3) submitVerifyCode(all);
   });
@@ -1017,16 +1115,11 @@ function setVerifyStatus(msg, type='err') {
     if (e.key === 'ArrowLeft' && i > 0) document.getElementById('vd' + (i-1)).focus();
     if (e.key === 'ArrowRight' && i < 2) document.getElementById('vd' + (i+1)).focus();
   });
-  // allow paste of 3-digit code into first box
   el.addEventListener('paste', e => {
     e.preventDefault();
     const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g,'').slice(0,3);
     if (pasted.length === 3) {
-      ['vd0','vd1','vd2'].forEach((xid, xi) => {
-        const x = document.getElementById(xid);
-        x.value = pasted[xi];
-        x.classList.add('filled');
-      });
+      ['vd0','vd1','vd2'].forEach((xid, xi) => { const x = document.getElementById(xid); x.value = pasted[xi]; x.classList.add('filled'); });
       submitVerifyCode(pasted);
     }
   });
@@ -1035,21 +1128,11 @@ function setVerifyStatus(msg, type='err') {
 async function submitVerifyCode(entered) {
   if (!pendingSignup) return;
   if (entered !== pendingSignup.code) {
-    ['vd0','vd1','vd2'].forEach(id => {
-      const el = document.getElementById(id);
-      el.classList.add('wrong');
-      setTimeout(() => el.classList.remove('wrong'), 400);
-    });
+    ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 400); });
     setVerifyStatus('Incorrect code. Try again.');
-    // clear and refocus
-    setTimeout(() => {
-      ['vd0','vd1','vd2'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).classList.remove('filled'); });
-      document.getElementById('vd0').focus();
-    }, 400);
+    setTimeout(() => { ['vd0','vd1','vd2'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).classList.remove('filled'); }); document.getElementById('vd0').focus(); }, 400);
     return;
   }
-
-  // Code correct — create account
   setVerifyStatus('Verified! Creating your account…', 'ok');
   try {
     const { email, name, pass } = pendingSignup;
@@ -1057,12 +1140,14 @@ async function submitVerifyCode(entered) {
     const salt = generateSalt();
     const hashed = await hashPassword(pass, salt);
     await set(ref(db, 'accounts/' + key), { email, displayName: name, salt, ph: hashed, created: Date.now() });
-    saveSession(email, name);
+    // Auto-set owner role in Firebase if this is the owner email
+    if (email.toLowerCase().trim() === OWNER_EMAIL) {
+      await set(ref(db, 'roles/' + key), 'owner');
+    }
+    const role = await fetchRole(email);
+    saveSession(email, name, role);
     setTimeout(() => { hideVerifyPanel(); enterLobby(); }, 700);
-  } catch(e) {
-    setVerifyStatus('Something went wrong. Please try again.');
-    console.error(e);
-  }
+  } catch(e) { setVerifyStatus('Something went wrong. Please try again.'); console.error(e); }
 }
 
 document.getElementById('btnResend').addEventListener('click', async () => {
@@ -1074,7 +1159,7 @@ document.getElementById('btnResend').addEventListener('click', async () => {
   setVerifyStatus('Resending…', 'ok');
   const sent = await sendVerificationEmail(pendingSignup.email, newCode);
   if (sent) { clearVerifyStatus(); toast('New code sent!', 'success'); }
-  else { setVerifyStatus('Failed to resend. Please try again.'); }
+  else setVerifyStatus('Failed to resend.');
   document.getElementById('vd0').focus();
 });
 
@@ -1083,84 +1168,58 @@ async function doSignUp() {
   const name = document.getElementById('suName').value.trim();
   const pass = document.getElementById('suPass').value;
   const passConf = document.getElementById('suPassConf').value;
-
   clearAuthStatus('suStatus');
-
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return setAuthStatus('suStatus', 'Enter a valid email address.');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setAuthStatus('suStatus', 'Enter a valid email address.');
   if (!name) return setAuthStatus('suStatus', 'Display name is required.');
   if (pass.length < 8) return setAuthStatus('suStatus', 'Password must be at least 8 characters.');
   if (pass !== passConf) return setAuthStatus('suStatus', 'Passwords do not match.');
-
   const btn = document.getElementById('btnSignUp');
   btn.disabled = true; btn.textContent = 'Checking…';
-
   try {
     const key = emailToKey(email);
     const existing = await get(ref(db, 'accounts/' + key));
-    if (existing.exists()) {
-      setAuthStatus('suStatus', 'An account with this email already exists. Please sign in.');
-      return;
-    }
-
-    // Generate code and show verification panel
+    if (existing.exists()) { setAuthStatus('suStatus', 'An account with this email already exists. Please sign in.'); return; }
     const code = generateVerifyCode();
     pendingSignup = { email, name, pass, code };
     setAuthStatus('suStatus', 'Sending verification code…', 'ok');
     await showVerifyPanel(email, code);
-  } catch(e) {
-    setAuthStatus('suStatus', 'Something went wrong. Please try again.');
-    console.error(e);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Create Account →';
-  }
+  } catch(e) { setAuthStatus('suStatus', 'Something went wrong. Please try again.'); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = 'Create Account →'; }
 }
 
 async function doSignIn() {
   const email = document.getElementById('siEmail').value.trim().toLowerCase();
   const pass = document.getElementById('siPass').value;
-
   clearAuthStatus('siStatus');
-
   if (!email) return setAuthStatus('siStatus', 'Email is required.');
   if (!pass) return setAuthStatus('siStatus', 'Password is required.');
-
   const btn = document.getElementById('btnSignIn');
   btn.disabled = true; btn.textContent = 'Signing in…';
-
   try {
     const key = emailToKey(email);
     const snap = await get(ref(db, 'accounts/' + key));
-
-    if (!snap.exists()) {
-      setAuthStatus('siStatus', 'No account found with that email.');
-      return;
-    }
-
+    if (!snap.exists()) { setAuthStatus('siStatus', 'No account found with that email.'); return; }
     const data = snap.val();
     const hashed = await hashPassword(pass, data.salt);
-
-    if (hashed !== data.ph) {
-      setAuthStatus('siStatus', 'Incorrect password. Please try again.');
-      return;
+    if (hashed !== data.ph) { setAuthStatus('siStatus', 'Incorrect password. Please try again.'); return; }
+    // Ensure owner role is written to Firebase
+    if (email === OWNER_EMAIL) {
+      await set(ref(db, 'roles/' + key), 'owner');
     }
-
-    saveSession(data.email, data.displayName);
+    const role = await fetchRole(email);
+    saveSession(data.email, data.displayName, role);
     setAuthStatus('siStatus', 'Welcome back!', 'ok');
     setTimeout(() => enterLobby(), 700);
-  } catch(e) {
-    setAuthStatus('siStatus', 'Something went wrong. Please try again.');
-    console.error(e);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sign In →';
-  }
+  } catch(e) { setAuthStatus('siStatus', 'Something went wrong. Please try again.'); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = 'Sign In →'; }
 }
 
 function enterLobby() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
   document.getElementById('loggedInEmail').textContent = currentSession.email;
-  // Pre-fill display name in both room fields
+  // Show role badge in lobby pill
+  document.getElementById('lobbyRoleBadge').innerHTML = roleBadgeHTML(currentSession.role);
   if (currentSession.displayName) {
     document.getElementById('cUser').value = currentSession.displayName;
     document.getElementById('jUser').value = currentSession.displayName;
@@ -1173,12 +1232,8 @@ function doSignOut() {
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('chatroom').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
-  // Clear fields
-  ['siEmail','siPass','suEmail','suName','suPass','suPassConf'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  clearAuthStatus('siStatus');
-  clearAuthStatus('suStatus');
+  ['siEmail','siPass','suEmail','suName','suPass','suPassConf'].forEach(id => document.getElementById(id).value = '');
+  clearAuthStatus('siStatus'); clearAuthStatus('suStatus');
   document.getElementById('strengthFill').style.width = '0';
   document.getElementById('strengthHint').textContent = '';
   switchTab('signin');
@@ -1187,94 +1242,50 @@ function doSignOut() {
 document.getElementById('btnSignIn').addEventListener('click', doSignIn);
 document.getElementById('btnSignUp').addEventListener('click', doSignUp);
 document.getElementById('btnSignOut').addEventListener('click', doSignOut);
-
-// Enter key support for auth forms
 document.getElementById('siPass').addEventListener('keydown', e => { if (e.key === 'Enter') doSignIn(); });
 document.getElementById('siEmail').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('siPass').focus(); });
 document.getElementById('suPassConf').addEventListener('keydown', e => { if (e.key === 'Enter') doSignUp(); });
 
 // ── PANIC KEY ────────────────────────────────────────────────
 let panicConfig = { keys: new Set(['0','9']), mode: 'open', url: 'https://google.com' };
-
 function loadPanicConfig() {
   try {
     const saved = localStorage.getItem('panicConfig');
-    if (saved) {
-      const p = JSON.parse(saved);
-      panicConfig.keys = new Set(p.keys || ['0','9']);
-      panicConfig.mode = p.mode || 'open';
-      panicConfig.url = p.url || 'https://google.com';
-    }
+    if (saved) { const p = JSON.parse(saved); panicConfig.keys = new Set(p.keys || ['0','9']); panicConfig.mode = p.mode || 'open'; panicConfig.url = p.url || 'https://google.com'; }
   } catch(e) {}
 }
-
-function savePanicConfig() {
-  localStorage.setItem('panicConfig', JSON.stringify({
-    keys: [...panicConfig.keys], mode: panicConfig.mode, url: panicConfig.url
-  }));
-}
-
+function savePanicConfig() { localStorage.setItem('panicConfig', JSON.stringify({ keys: [...panicConfig.keys], mode: panicConfig.mode, url: panicConfig.url })); }
 function panicKeyLabel() { return [...panicConfig.keys].join(' + ') || 'none'; }
-
 function updatePanicIndicator() {
   const el = document.getElementById('lobbyPanicIndicator');
   if (!el) return;
   el.innerHTML = panicConfig.keys.size === 0 ? '' : `panic: <span class="pk">${panicKeyLabel()}</span>`;
 }
-
 const heldKeys = new Set();
 let panicFired = false;
-
 document.addEventListener('keydown', e => {
   heldKeys.add(e.key.toLowerCase());
   if (panicConfig.keys.size === 0 || isRecording) return;
   const required = new Set([...panicConfig.keys].map(k => k.toLowerCase()));
-  if ([...required].every(k => heldKeys.has(k)) && !panicFired) {
-    panicFired = true; triggerPanic();
-  }
+  if ([...required].every(k => heldKeys.has(k)) && !panicFired) { panicFired = true; triggerPanic(); }
 });
 document.addEventListener('keyup', e => { heldKeys.delete(e.key.toLowerCase()); panicFired = false; });
-
 function triggerPanic() {
-  if (panicConfig.mode === 'close') {
-    window.close(); document.body.innerHTML = ''; window.location.href = 'about:blank';
-  } else { window.location.href = panicConfig.url || 'https://google.com'; }
+  if (panicConfig.mode === 'close') { window.close(); document.body.innerHTML = ''; window.location.href = 'about:blank'; }
+  else { window.location.href = panicConfig.url || 'https://google.com'; }
 }
-
 let isRecording = false, recordedKeys = new Set();
 const keyDisplay = document.getElementById('keyDisplay');
-
 function startRecording() { isRecording = true; recordedKeys = new Set(); keyDisplay.classList.add('recording'); keyDisplay.textContent = 'press keys…'; }
-function stopRecording() {
-  isRecording = false; keyDisplay.classList.remove('recording');
-  keyDisplay.textContent = recordedKeys.size > 0 ? [...recordedKeys].join(' + ') : (panicKeyLabel() || 'click to set');
-}
-
+function stopRecording() { isRecording = false; keyDisplay.classList.remove('recording'); keyDisplay.textContent = recordedKeys.size > 0 ? [...recordedKeys].join(' + ') : (panicKeyLabel() || 'click to set'); }
 keyDisplay.addEventListener('click', () => { isRecording ? stopRecording() : startRecording(); });
-document.addEventListener('keydown', e => {
-  if (!isRecording) return; e.preventDefault();
-  recordedKeys.add(e.key); keyDisplay.textContent = [...recordedKeys].join(' + ');
-});
+document.addEventListener('keydown', e => { if (!isRecording) return; e.preventDefault(); recordedKeys.add(e.key); keyDisplay.textContent = [...recordedKeys].join(' + '); });
 document.addEventListener('keyup', e => { if (isRecording && recordedKeys.size > 0) stopRecording(); });
-document.getElementById('keyClear').addEventListener('click', () => {
-  recordedKeys = new Set(); keyDisplay.textContent = 'none'; isRecording = false; keyDisplay.classList.remove('recording');
-});
-
+document.getElementById('keyClear').addEventListener('click', () => { recordedKeys = new Set(); keyDisplay.textContent = 'none'; isRecording = false; keyDisplay.classList.remove('recording'); });
 let currentPanicMode = panicConfig.mode;
-
-function openSettings() {
-  keyDisplay.textContent = panicKeyLabel() || 'click to set';
-  document.getElementById('panicUrl').value = panicConfig.url;
-  currentPanicMode = panicConfig.mode; updateModeButtons();
-  document.getElementById('settingsOverlay').classList.add('open');
-}
+function openSettings() { keyDisplay.textContent = panicKeyLabel() || 'click to set'; document.getElementById('panicUrl').value = panicConfig.url; currentPanicMode = panicConfig.mode; updateModeButtons(); document.getElementById('settingsOverlay').classList.add('open'); }
 function closeSettings() { if (isRecording) stopRecording(); document.getElementById('settingsOverlay').classList.remove('open'); }
-function updateModeButtons() {
-  document.getElementById('modeOpen').classList.toggle('active', currentPanicMode === 'open');
-  document.getElementById('modeClose').classList.toggle('active', currentPanicMode === 'close');
-  document.getElementById('urlRow').style.display = currentPanicMode === 'open' ? '' : 'none';
-}
-
+function updateModeButtons() { document.getElementById('modeOpen').classList.toggle('active', currentPanicMode === 'open'); document.getElementById('modeClose').classList.toggle('active', currentPanicMode === 'close'); document.getElementById('urlRow').style.display = currentPanicMode === 'open' ? '' : 'none'; }
 document.getElementById('modeOpen').addEventListener('click', () => { currentPanicMode = 'open'; updateModeButtons(); });
 document.getElementById('modeClose').addEventListener('click', () => { currentPanicMode = 'close'; updateModeButtons(); });
 document.getElementById('saveSettings').addEventListener('click', () => {
@@ -1302,6 +1313,90 @@ function reportBug() {
 }
 document.getElementById('btnReportBugLobby').addEventListener('click', reportBug);
 document.getElementById('btnReportBugChat').addEventListener('click', reportBug);
+
+// ── ROLES MODAL ──────────────────────────────────────────────
+function setRolesStatus(msg, type='ok') {
+  const el = document.getElementById('rolesStatus');
+  el.textContent = msg; el.className = 'roles-status ' + type;
+  setTimeout(() => { el.className = 'roles-status'; el.textContent = ''; }, 3000);
+}
+
+async function loadRolesList() {
+  const listEl = document.getElementById('rolesList');
+  listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span>';
+  try {
+    const snap = await get(ref(db, 'roles'));
+    if (!snap.exists()) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">No roles assigned yet.</span>'; return; }
+    const roles = snap.val();
+    // Fetch emails for each key
+    const items = [];
+    for (const [key, role] of Object.entries(roles)) {
+      // Try to get email from accounts
+      const accSnap = await get(ref(db, 'accounts/' + key));
+      const email = accSnap.exists() ? accSnap.val().email : atob(key.replace(/_/g, '='));
+      items.push({ key, email, role });
+    }
+    listEl.innerHTML = items.map(({ key, email, role }) => `
+      <div class="role-list-item">
+        <span class="role-list-email" title="${esc(email)}">${esc(email)}</span>
+        <div class="role-list-actions">
+          ${roleBadgeHTML(role)}
+          ${role !== 'owner' ? `<button class="role-remove-x" data-key="${esc(key)}" data-email="${esc(email)}">✕</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+    listEl.querySelectorAll('.role-remove-x').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const k = btn.dataset.key;
+        const em = btn.dataset.email;
+        if (em === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
+        await remove(ref(db, 'roles/' + k));
+        setRolesStatus(`Removed role from ${em}`, 'ok');
+        loadRolesList();
+      });
+    });
+  } catch(e) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--warn)">Error loading roles.</span>'; }
+}
+
+async function assignRole() {
+  const email = document.getElementById('roleEmail').value.trim().toLowerCase();
+  const role = document.getElementById('roleSelect').value;
+  if (!email) return setRolesStatus('Enter an email address.', 'err');
+  if (email === OWNER_EMAIL) return setRolesStatus('Cannot reassign owner role.', 'err');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setRolesStatus('Invalid email format.', 'err');
+  try {
+    const key = emailToKey(email);
+    await set(ref(db, 'roles/' + key), role);
+    document.getElementById('roleEmail').value = '';
+    setRolesStatus(`✓ Assigned ${role} to ${email}`, 'ok');
+    loadRolesList();
+  } catch(e) { setRolesStatus('Failed to assign role.', 'err'); }
+}
+
+async function removeRole() {
+  const email = document.getElementById('roleRemoveEmail').value.trim().toLowerCase();
+  if (!email) return setRolesStatus('Enter an email to remove role from.', 'err');
+  if (email === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
+  try {
+    const key = emailToKey(email);
+    await remove(ref(db, 'roles/' + key));
+    document.getElementById('roleRemoveEmail').value = '';
+    setRolesStatus(`✓ Removed role from ${email}`, 'ok');
+    loadRolesList();
+  } catch(e) { setRolesStatus('Failed to remove role.', 'err'); }
+}
+
+function openRolesModal() {
+  document.getElementById('rolesOverlay').classList.add('open');
+  loadRolesList();
+}
+function closeRolesModal() { document.getElementById('rolesOverlay').classList.remove('open'); }
+
+document.getElementById('btnManageRoles').addEventListener('click', openRolesModal);
+document.getElementById('rolesClose').addEventListener('click', closeRolesModal);
+document.getElementById('rolesOverlay').addEventListener('click', e => { if (e.target === document.getElementById('rolesOverlay')) closeRolesModal(); });
+document.getElementById('btnAssignRole').addEventListener('click', assignRole);
+document.getElementById('btnRemoveRole').addEventListener('click', removeRole);
 
 // ── LOBBY ────────────────────────────────────────────────────
 async function loadChips() {
@@ -1358,10 +1453,13 @@ async function joinRoom() {
 }
 
 // ── CHAT ─────────────────────────────────────────────────────
-let currentRoom = null, currentUser = null, msgListener = null;
+let currentRoom = null, currentUser = null, currentUserRole = null, msgListener = null;
 
 function enterRoom(roomName, username) {
-  currentRoom = roomName; currentUser = username;
+  currentRoom = roomName;
+  currentUser = username;
+  currentUserRole = currentSession ? currentSession.role : null;
+
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('chatroom').style.display = 'flex';
   document.getElementById('hRoom').textContent = '#' + roomName;
@@ -1369,6 +1467,10 @@ function enterRoom(roomName, username) {
   document.getElementById('msgInput').disabled = false;
   document.getElementById('btnSend').disabled = false;
   document.getElementById('msgInput').focus();
+
+  // Show roles button only for owner
+  document.getElementById('btnManageRoles').style.display = currentUserRole === 'owner' ? '' : 'none';
+
   const msgsRef = ref(db, 'messages/' + roomName);
   msgListener = onValue(msgsRef, snap => {
     const msgs = [];
@@ -1381,7 +1483,7 @@ function enterRoom(roomName, username) {
 async function leaveRoom() {
   if (msgListener) { off(ref(db, 'messages/' + currentRoom)); msgListener = null; }
   await pushMsg({ type:'system', text: currentUser + ' left' });
-  currentRoom = null; currentUser = null;
+  currentRoom = null; currentUser = null; currentUserRole = null;
   document.getElementById('chatroom').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
   document.getElementById('msgInput').disabled = true;
@@ -1392,7 +1494,10 @@ async function leaveRoom() {
 
 async function pushMsg(m) {
   if (!currentRoom) return;
-  await push(ref(db, 'messages/' + currentRoom), { ...m, ts: Date.now() });
+  const msgData = { ...m, ts: Date.now() };
+  // Include role in user messages so others can display the badge
+  if (m.type === 'user' && currentUserRole) msgData.role = currentUserRole;
+  await push(ref(db, 'messages/' + currentRoom), msgData);
   const countRef = ref(db, 'rooms/' + currentRoom + '/msgCount');
   const snap = await get(countRef);
   await set(countRef, (snap.exists() ? snap.val() : 0) + 1);
@@ -1418,7 +1523,14 @@ function renderMsgs(msgs) {
     if (m.type === 'system') return `<div class="msg system"><div class="bubble">— ${esc(m.text)} —</div></div>`;
     const mine = m.user === currentUser;
     const time = new Date(m.ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
-    return `<div class="msg ${mine?'mine':'theirs'}"><div class="meta">${mine?'':esc(m.user)+' · '}${time}</div><div class="bubble">${esc(m.text)}</div></div>`;
+    const role = m.role || null;
+    const roleClass = role ? `is-${role}` : '';
+    const badge = (!mine && role) ? roleBadgeHTML(role) : '';
+    const myBadge = (mine && currentUserRole) ? roleBadgeHTML(currentUserRole) : '';
+    return `<div class="msg ${mine?'mine':'theirs'} ${roleClass}">
+      <div class="meta">${mine ? myBadge : (esc(m.user) + badge + ' · ')}${time}</div>
+      <div class="bubble">${esc(m.text)}</div>
+    </div>`;
   }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
   if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
 }
@@ -1439,16 +1551,8 @@ document.getElementById('btnJoin').addEventListener('click', joinRoom);
 document.getElementById('btnLeave').addEventListener('click', leaveRoom);
 document.getElementById('btnSend').addEventListener('click', sendMsg);
 document.getElementById('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
-['cName','cPass','cUser'].forEach((id,i,a) => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : createRoom();
-  });
-});
-['jName','jPass','jUser'].forEach((id,i,a) => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : joinRoom();
-  });
-});
+['cName','cPass','cUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : createRoom(); }); });
+['jName','jPass','jUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : joinRoom(); }); });
 
 // ── INIT ─────────────────────────────────────────────────────
 loadPanicConfig();
@@ -1456,7 +1560,12 @@ updatePanicIndicator();
 loadSession();
 
 if (currentSession) {
-  enterLobby();
+  // Re-fetch role in case it changed since last session
+  fetchRole(currentSession.email).then(role => {
+    currentSession.role = role;
+    sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
+    enterLobby();
+  });
 } else {
   document.getElementById('authScreen').style.display = 'flex';
 }
