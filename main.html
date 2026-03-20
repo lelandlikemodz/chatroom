@@ -1661,8 +1661,10 @@ document.getElementById('btnApplyTheme').addEventListener('click', () => {
 });
 
 // ── COMMANDS ─────────────────────────────────────────────────
-const OWNER_CMDS = ['/kick <user>', '/mute <user> <sec>', '/deleteroom', '/theme'];
-const MOD_CMDS   = ['/mute <user> <sec>', '/theme'];
+const OWNER_CMDS = ['/kick <user>', '/mute <user> <sec>', '/deleteroom', '/theme', '/help'];
+const MOD_CMDS   = ['/mute <user> <sec>', '/theme', '/help'];
+const VIP_CMDS   = ['/help'];
+const USER_CMDS  = ['/help'];
 
 async function handleCommand(text) {
   const parts = text.trim().split(/\s+/);
@@ -1711,7 +1713,53 @@ async function handleCommand(text) {
     return;
   }
 
-  toast('Unknown command: ' + cmd);
+  if (cmd === '/help') {
+    const role = currentUserRole;
+    let lines = [];
+    if (role === 'owner') {
+      lines = [
+        '👑 OWNER COMMANDS',
+        '/kick <user> — remove a user from the room',
+        '/mute <user> <sec> — silence a user for N seconds',
+        '/deleteroom — permanently delete this room',
+        '/theme — change accent color for everyone',
+        '/help — show this list',
+      ];
+    } else if (role === 'mod') {
+      lines = [
+        '🛡 MOD COMMANDS',
+        '/mute <user> <sec> — silence a user (max 30s)',
+        '/theme — change accent color for everyone',
+        '/help — show this list',
+      ];
+    } else if (role === 'vip') {
+      lines = [
+        '⭐ VIP PERKS',
+        'You have a gold name in chat.',
+        '/help — show this list',
+      ];
+    } else {
+      lines = [
+        'You have no special commands.',
+        '/help — show this list',
+      ];
+    }
+    // Post as a local system-style message (not saved to Firebase)
+    const wrap = document.getElementById('msgs');
+    const helpEl = document.createElement('div');
+    helpEl.className = 'msg system';
+    helpEl.innerHTML = '<div class="bubble" style="color:var(--accent);text-align:left;line-height:1.9;font-size:0.65rem">' +
+      lines.map(l => l.startsWith('/') || l.startsWith('You')
+        ? '<span style="color:var(--muted2)">' + esc(l) + '</span>'
+        : '<span style="color:var(--accent);font-weight:700">' + esc(l) + '</span>'
+      ).join('<br>') +
+      '</div>';
+    wrap.appendChild(helpEl);
+    wrap.scrollTop = wrap.scrollHeight;
+    return;
+  }
+
+  toast('Unknown command: ' + cmd + ' — type /help for commands');
 }
 
 // Command hint on input
@@ -1719,7 +1767,7 @@ document.getElementById('msgInput').addEventListener('input', function() {
   const val = this.value;
   const hint = document.getElementById('cmdHint');
   if (!val.startsWith('/') || (!currentUserRole)) { hint.classList.remove('show'); return; }
-  const cmds = currentUserRole === 'owner' ? OWNER_CMDS : currentUserRole === 'mod' ? MOD_CMDS : [];
+  const cmds = currentUserRole === 'owner' ? OWNER_CMDS : currentUserRole === 'mod' ? MOD_CMDS : currentUserRole === 'vip' ? VIP_CMDS : USER_CMDS;
   const matches = cmds.filter(c => c.startsWith(val.split(' ')[0]));
   if (matches.length) { hint.textContent = matches.join('   '); hint.classList.add('show'); }
   else { hint.classList.remove('show'); }
