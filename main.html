@@ -657,9 +657,80 @@
   .roles-status.ok { display:block; background:rgba(57,255,156,0.08); border:1px solid rgba(57,255,156,0.25); color:var(--accent); }
   .roles-status.err { display:block; background:rgba(255,107,53,0.1); border:1px solid rgba(255,107,53,0.3); color:var(--warn); }
 
+  /* VIP gold name */
+  .msg.is-vip .meta .uname { color: var(--owner); font-weight: 700; }
+  .msg.mine.is-vip .meta { color: var(--owner); }
+
+  /* Trash button */
+  .msg-wrap { position: relative; display: flex; flex-direction: column; max-width: 62%; }
+  .msg-wrap.mine { align-self: flex-end; align-items: flex-end; }
+  .msg-wrap.theirs { align-self: flex-start; align-items: flex-start; }
+  .msg-actions {
+    display: flex; align-items: center; gap: 0.3rem;
+    opacity: 0; transition: opacity 0.15s; margin-bottom: 0.15rem;
+  }
+  .msg-wrap:hover .msg-actions { opacity: 1; }
+  .btn-delete-msg {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.8rem; padding: 0.1rem 0.25rem;
+    border-radius: 2px; transition: transform 0.1s;
+    line-height: 1;
+  }
+  .btn-delete-msg:hover { transform: scale(1.2); }
+
+  /* Mute overlay */
+  #muteOverlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 50000;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem;
+  }
+  #muteOverlay.active { display: flex; }
+  .mute-icon { font-size: 3rem; }
+  .mute-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--warn); }
+  .mute-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted2); letter-spacing: 0.1em; }
+  .mute-timer { font-family: 'Space Mono', monospace; font-size: 2rem; color: var(--warn); font-weight: 700; }
+
+  /* Theme picker */
+  .theme-picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .theme-swatch {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .theme-swatch:hover { transform: scale(1.15); }
+  .theme-swatch.active { border-color: var(--text); }
+  .theme-hex-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
+  .theme-hex-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 0.45rem 0.7rem; font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    outline: none; border-radius: var(--r); transition: border-color 0.15s;
+  }
+  .theme-hex-input:focus { border-color: var(--accent); }
+  .theme-apply-btn {
+    padding: 0.45rem 0.85rem; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s;
+  }
+  .theme-apply-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Command hint */
+  .cmd-hint {
+    font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted);
+    padding: 0.2rem 0.5rem; display: none;
+    position: absolute; bottom: calc(100% + 4px); left: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); white-space: nowrap; z-index: 100;
+  }
+  .cmd-hint.show { display: block; }
+  .input-bar { position: relative; }
+
   @media(max-width:580px) {
     .lobby-wrap { grid-template-columns:1fr; }
     .msg { max-width:85%; }
+    .msg-wrap { max-width: 85%; }
     .setting-row { flex-direction:column; align-items:flex-start; }
   }
 </style>
@@ -788,18 +859,47 @@
     <div class="honline"><div class="dot"></div><span id="hOnline">1</span> online</div>
     <button class="btn-hdr" id="btnReportBugChat">Bug</button>
     <button class="btn-hdr" id="btnOpenSettingsChat">⚙</button>
+    <button class="btn-hdr" id="btnOpenTheme" style="display:none">🎨 Theme</button>
     <button class="btn-hdr owner-btn" id="btnManageRoles" style="display:none">👑 Roles</button>
     <button class="btn-leave" id="btnLeave">Leave</button>
   </div>
   <div class="msgs" id="msgs"><div class="status-row">connecting to firebase…</div></div>
   <div class="input-bar">
     <span class="ubadge" id="uBadge">you</span>
+    <div class="cmd-hint" id="cmdHint"></div>
     <input type="text" id="msgInput" placeholder="say something…" maxlength="500" autocomplete="off" disabled/>
     <button class="btn-send" id="btnSend" disabled>Send</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MUTE OVERLAY -->
+<div id="muteOverlay">
+  <div class="mute-icon">🔇</div>
+  <div class="mute-title">You've been muted</div>
+  <div class="mute-sub">A moderator silenced you temporarily</div>
+  <div class="mute-timer" id="muteTimer">0s</div>
+</div>
+
+<!-- THEME MODAL -->
+<div class="modal-overlay" id="themeOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Chat Theme</h2>
+      <button class="modal-close" id="themeClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-label">Pick accent color — applies for everyone in room</div>
+      <div class="theme-picker-row" id="themeSwatches"></div>
+      <div class="theme-hex-row">
+        <input class="theme-hex-input" id="themeHex" placeholder="#39ff9c" maxlength="7"/>
+        <button class="theme-apply-btn" id="btnApplyTheme">Apply</button>
+      </div>
+      <div class="roles-status" id="themeStatus"></div>
+    </div>
+  </div>
+</div>
 
 <!-- CREDITS MODAL -->
 <div class="modal-overlay" id="creditsOverlay">
@@ -1454,7 +1554,178 @@ async function joinRoom() {
 
 // ── CHAT ─────────────────────────────────────────────────────
 let currentRoom = null, currentUser = null, currentUserRole = null, msgListener = null;
+let muteTimer = null, isMuted = false;
 
+// ── MUTE SYSTEM ──────────────────────────────────────────────
+function applyMute(seconds) {
+  isMuted = true;
+  document.getElementById('msgInput').disabled = true;
+  document.getElementById('btnSend').disabled = true;
+  document.getElementById('muteOverlay').classList.add('active');
+  let remaining = seconds;
+  document.getElementById('muteTimer').textContent = remaining + 's';
+  if (muteTimer) clearInterval(muteTimer);
+  muteTimer = setInterval(() => {
+    remaining--;
+    document.getElementById('muteTimer').textContent = remaining + 's';
+    if (remaining <= 0) {
+      clearInterval(muteTimer); muteTimer = null; isMuted = false;
+      document.getElementById('muteOverlay').classList.remove('active');
+      document.getElementById('msgInput').disabled = false;
+      document.getElementById('btnSend').disabled = false;
+      document.getElementById('msgInput').focus();
+    }
+  }, 1000);
+}
+
+// Listen for mute/kick/theme commands broadcast via Firebase
+function listenRoomControls(roomName) {
+  const ctrlRef = ref(db, 'controls/' + roomName);
+  onValue(ctrlRef, snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    // Mute
+    if (data.mute && data.mute.target === currentUser && data.mute.ts > Date.now() - 60000) {
+      applyMute(data.mute.seconds);
+    }
+    // Kick
+    if (data.kick && data.kick.target === currentUser && data.kick.ts > Date.now() - 5000) {
+      toast('You have been kicked from this room.', 'error');
+      setTimeout(() => leaveRoomSilent(), 1200);
+    }
+    // Theme
+    if (data.theme && data.theme.color) {
+      applyAccentColor(data.theme.color);
+    }
+  });
+}
+
+function applyAccentColor(color) {
+  document.documentElement.style.setProperty('--accent', color);
+}
+
+// ── THEME ────────────────────────────────────────────────────
+const THEME_PRESETS = [
+  { color: '#39ff9c', label: 'Green' },
+  { color: '#4fc3f7', label: 'Blue' },
+  { color: '#ff6b35', label: 'Orange' },
+  { color: '#ffd700', label: 'Gold' },
+  { color: '#ce93d8', label: 'Purple' },
+  { color: '#ff4081', label: 'Pink' },
+  { color: '#ffffff', label: 'White' },
+  { color: '#f0c040', label: 'Yellow' },
+  { color: '#80cbc4', label: 'Teal' },
+];
+
+function buildThemeSwatches() {
+  const row = document.getElementById('themeSwatches');
+  row.innerHTML = THEME_PRESETS.map(p =>
+    `<div class="theme-swatch" style="background:${p.color}" title="${p.label}" data-color="${p.color}"></div>`
+  ).join('');
+  row.querySelectorAll('.theme-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      document.getElementById('themeHex').value = sw.dataset.color;
+      row.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+    });
+  });
+}
+
+async function applyThemeForRoom(color) {
+  if (!currentRoom) return;
+  await set(ref(db, 'controls/' + currentRoom + '/theme'), { color, ts: Date.now() });
+  const el = document.getElementById('themeStatus');
+  el.textContent = '✓ Theme applied for everyone'; el.className = 'roles-status ok';
+  setTimeout(() => { el.className = 'roles-status'; }, 2500);
+}
+
+function openThemeModal() {
+  buildThemeSwatches();
+  document.getElementById('themeHex').value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  document.getElementById('themeOverlay').classList.add('open');
+}
+function closeThemeModal() { document.getElementById('themeOverlay').classList.remove('open'); }
+document.getElementById('btnOpenTheme').addEventListener('click', openThemeModal);
+document.getElementById('themeClose').addEventListener('click', closeThemeModal);
+document.getElementById('themeOverlay').addEventListener('click', e => { if (e.target === document.getElementById('themeOverlay')) closeThemeModal(); });
+document.getElementById('btnApplyTheme').addEventListener('click', () => {
+  const hex = document.getElementById('themeHex').value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    const el = document.getElementById('themeStatus');
+    el.textContent = 'Enter a valid hex color (#rrggbb)'; el.className = 'roles-status err';
+    setTimeout(() => { el.className = 'roles-status'; }, 2500);
+    return;
+  }
+  applyThemeForRoom(hex);
+  closeThemeModal();
+});
+
+// ── COMMANDS ─────────────────────────────────────────────────
+const OWNER_CMDS = ['/kick <user>', '/mute <user> <sec>', '/deleteroom', '/theme'];
+const MOD_CMDS   = ['/mute <user> <sec>', '/theme'];
+
+async function handleCommand(text) {
+  const parts = text.trim().split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+
+  if (cmd === '/kick') {
+    if (currentUserRole !== 'owner') return toast('Only owner can kick');
+    const target = parts[1];
+    if (!target) return toast('Usage: /kick <username>');
+    await set(ref(db, 'controls/' + currentRoom + '/kick'), { target, ts: Date.now() });
+    await pushMsg({ type: 'system', text: target + ' was kicked by ' + currentUser });
+    toast('Kicked ' + target, 'success');
+    return;
+  }
+
+  if (cmd === '/mute') {
+    if (currentUserRole !== 'owner' && currentUserRole !== 'mod') return toast('No permission');
+    const target = parts[1];
+    let seconds = parseInt(parts[2]) || 10;
+    if (!target) return toast('Usage: /mute <username> <seconds>');
+    if (currentUserRole === 'mod' && seconds > 30) {
+      seconds = 30;
+      toast('Mods can only mute up to 30s. Capped at 30s.', 'success');
+    }
+    await set(ref(db, 'controls/' + currentRoom + '/mute'), { target, seconds, ts: Date.now() });
+    await pushMsg({ type: 'system', text: target + ' was muted for ' + seconds + 's by ' + currentUser });
+    toast('Muted ' + target + ' for ' + seconds + 's', 'success');
+    return;
+  }
+
+  if (cmd === '/deleteroom') {
+    if (currentUserRole !== 'owner') return toast('Only owner can delete rooms');
+    if (!confirm('Delete room "' + currentRoom + '"? This cannot be undone.')) return;
+    const room = currentRoom;
+    await leaveRoomSilent();
+    await remove(ref(db, 'rooms/' + room));
+    await remove(ref(db, 'messages/' + room));
+    await remove(ref(db, 'controls/' + room));
+    toast('Room deleted.', 'success');
+    return;
+  }
+
+  if (cmd === '/theme') {
+    if (currentUserRole !== 'owner' && currentUserRole !== 'mod') return toast('No permission');
+    openThemeModal();
+    return;
+  }
+
+  toast('Unknown command: ' + cmd);
+}
+
+// Command hint on input
+document.getElementById('msgInput').addEventListener('input', function() {
+  const val = this.value;
+  const hint = document.getElementById('cmdHint');
+  if (!val.startsWith('/') || (!currentUserRole)) { hint.classList.remove('show'); return; }
+  const cmds = currentUserRole === 'owner' ? OWNER_CMDS : currentUserRole === 'mod' ? MOD_CMDS : [];
+  const matches = cmds.filter(c => c.startsWith(val.split(' ')[0]));
+  if (matches.length) { hint.textContent = matches.join('   '); hint.classList.add('show'); }
+  else { hint.classList.remove('show'); }
+});
+
+// ── ENTER / LEAVE ROOM ───────────────────────────────────────
 function enterRoom(roomName, username) {
   currentRoom = roomName;
   currentUser = username;
@@ -1468,8 +1739,9 @@ function enterRoom(roomName, username) {
   document.getElementById('btnSend').disabled = false;
   document.getElementById('msgInput').focus();
 
-  // Show roles button only for owner
+  // Show owner/mod buttons
   document.getElementById('btnManageRoles').style.display = currentUserRole === 'owner' ? '' : 'none';
+  document.getElementById('btnOpenTheme').style.display = (currentUserRole === 'owner' || currentUserRole === 'mod') ? '' : 'none';
 
   const msgsRef = ref(db, 'messages/' + roomName);
   msgListener = onValue(msgsRef, snap => {
@@ -1477,13 +1749,29 @@ function enterRoom(roomName, username) {
     if (snap.exists()) { snap.forEach(child => { const val = child.val(); if (val && val.ts) msgs.push({ id: child.key, ...val }); }); msgs.sort((a,b) => a.ts-b.ts); }
     renderMsgs(msgs);
   });
+
+  listenRoomControls(roomName);
   pushMsg({ type:'system', text: username + ' joined' });
 }
 
 async function leaveRoom() {
   if (msgListener) { off(ref(db, 'messages/' + currentRoom)); msgListener = null; }
+  off(ref(db, 'controls/' + currentRoom));
   await pushMsg({ type:'system', text: currentUser + ' left' });
+  resetChatState();
+}
+
+async function leaveRoomSilent() {
+  if (msgListener) { off(ref(db, 'messages/' + currentRoom)); msgListener = null; }
+  off(ref(db, 'controls/' + currentRoom));
+  resetChatState();
+}
+
+function resetChatState() {
   currentRoom = null; currentUser = null; currentUserRole = null;
+  if (muteTimer) { clearInterval(muteTimer); muteTimer = null; }
+  isMuted = false;
+  document.getElementById('muteOverlay').classList.remove('active');
   document.getElementById('chatroom').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
   document.getElementById('msgInput').disabled = true;
@@ -1495,7 +1783,6 @@ async function leaveRoom() {
 async function pushMsg(m) {
   if (!currentRoom) return;
   const msgData = { ...m, ts: Date.now() };
-  // Include role in user messages so others can display the badge
   if (m.type === 'user' && currentUserRole) msgData.role = currentUserRole;
   await push(ref(db, 'messages/' + currentRoom), msgData);
   const countRef = ref(db, 'rooms/' + currentRoom + '/msgCount');
@@ -1504,13 +1791,24 @@ async function pushMsg(m) {
 }
 
 async function sendMsg() {
+  if (isMuted) return;
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text || !currentRoom) return;
-  input.value = ''; input.focus();
+  input.value = '';
+  document.getElementById('cmdHint').classList.remove('show');
+  input.focus();
+  if (text.startsWith('/')) { await handleCommand(text); return; }
   await pushMsg({ type:'user', user: currentUser, text });
 }
 
+// ── DELETE MESSAGE ────────────────────────────────────────────
+async function deleteMessage(msgId) {
+  if (currentUserRole !== 'owner') return;
+  await remove(ref(db, 'messages/' + currentRoom + '/' + msgId));
+}
+
+// ── RENDER MESSAGES ───────────────────────────────────────────
 let lastMsgCount = 0;
 function renderMsgs(msgs) {
   const wrap = document.getElementById('msgs');
@@ -1519,6 +1817,9 @@ function renderMsgs(msgs) {
   lastMsgCount = msgs.length;
   document.getElementById('hMeta').textContent = `${msgs.length} message${msgs.length!==1?'s':''}`;
   calcOnline(msgs);
+
+  const isOwner = currentUserRole === 'owner';
+
   wrap.innerHTML = msgs.length ? msgs.map(m => {
     if (m.type === 'system') return `<div class="msg system"><div class="bubble">— ${esc(m.text)} —</div></div>`;
     const mine = m.user === currentUser;
@@ -1527,11 +1828,25 @@ function renderMsgs(msgs) {
     const roleClass = role ? `is-${role}` : '';
     const badge = (!mine && role) ? roleBadgeHTML(role) : '';
     const myBadge = (mine && currentUserRole) ? roleBadgeHTML(currentUserRole) : '';
-    return `<div class="msg ${mine?'mine':'theirs'} ${roleClass}">
-      <div class="meta">${mine ? myBadge : (esc(m.user) + badge + ' · ')}${time}</div>
-      <div class="bubble">${esc(m.text)}</div>
+    const isVip = role === 'vip';
+    const unameHTML = isVip
+      ? `<span class="uname" style="color:var(--owner);font-weight:700">${esc(m.user)}</span>`
+      : `<span class="uname">${esc(m.user)}</span>`;
+    const trashBtn = isOwner ? `<button class="btn-delete-msg" data-id="${esc(m.id)}" title="Delete message">🗑️</button>` : '';
+    return `<div class="msg-wrap ${mine?'mine':'theirs'} ${roleClass}">
+      ${trashBtn ? `<div class="msg-actions">${trashBtn}</div>` : ''}
+      <div class="msg ${mine?'mine':'theirs'} ${roleClass}">
+        <div class="meta">${mine ? myBadge : (unameHTML + badge + ' · ')}${time}</div>
+        <div class="bubble">${esc(m.text)}</div>
+      </div>
     </div>`;
   }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
+
+  // Attach delete listeners
+  wrap.querySelectorAll('.btn-delete-msg').forEach(btn => {
+    btn.addEventListener('click', () => deleteMessage(btn.dataset.id));
+  });
+
   if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
 }
 
