@@ -1766,7 +1766,7 @@ async function handleCommand(text) {
 document.getElementById('msgInput').addEventListener('input', function() {
   const val = this.value;
   const hint = document.getElementById('cmdHint');
-  if (!val.startsWith('/') || (!currentUserRole)) { hint.classList.remove('show'); return; }
+  if (!val.startsWith('/')) { hint.classList.remove('show'); return; }
   const cmds = currentUserRole === 'owner' ? OWNER_CMDS : currentUserRole === 'mod' ? MOD_CMDS : currentUserRole === 'vip' ? VIP_CMDS : USER_CMDS;
   const matches = cmds.filter(c => c.startsWith(val.split(' ')[0]));
   if (matches.length) { hint.textContent = matches.join('   '); hint.classList.add('show'); }
@@ -1846,7 +1846,7 @@ async function sendMsg() {
   input.value = '';
   document.getElementById('cmdHint').classList.remove('show');
   input.focus();
-  if (text.startsWith('/')) { await handleCommand(text); return; }
+  if (text.startsWith('/')) { await handleCommand(text); return; } // commands always handled
   await pushMsg({ type:'user', user: currentUser, text });
 }
 
