@@ -27,6 +27,7 @@
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow: hidden;
   }
   body::before {
@@ -445,7 +446,10 @@
   .toast.success { background: var(--accent); color: #040505; }
 
   /* CHATROOM */
-  #chatroom { display: none; flex-direction: column; height: 100vh; }
+  /* height:100vh can be clipped on mobile browsers when the address bar
+     shows/hides, hiding the header. 100dvh tracks the real visible area.
+     Falls back to 100vh (identical result) on browsers/desktops without dvh support. */
+  #chatroom { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
   .chat-header {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
@@ -453,7 +457,12 @@
     height: 52px;
     display: flex; align-items: center; gap: 1rem;
     flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
+  .chat-header::-webkit-scrollbar { height: 3px; }
+  .chat-header::-webkit-scrollbar-thumb { background: var(--border); }
+  .chat-header > * { flex-shrink: 0; }
   .hroom { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:800; color:var(--accent); letter-spacing:-0.02em; }
   .hmeta { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--muted); border-left:1px solid var(--border); padding-left:1rem; }
   .honline { margin-left:auto; display:flex; align-items:center; gap:0.4rem; font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--accent); }
@@ -857,6 +866,7 @@
     <div class="hroom" id="hRoom">—</div>
     <div class="hmeta" id="hMeta">connecting…</div>
     <div class="honline"><div class="dot"></div><span id="hOnline">1</span> online</div>
+    <button class="btn-hdr" id="btnMentionNotifier" title="Mention Notifier">🔔</button>
     <button class="btn-hdr" id="btnReportBugChat">Bug</button>
     <button class="btn-hdr" id="btnOpenSettingsChat">⚙</button>
     <button class="btn-hdr" id="btnOpenTheme" style="display:none">🎨 Theme</button>
@@ -1237,9 +1247,17 @@ async function submitVerifyCode(entered) {
   try {
     const { email, name, pass } = pendingSignup;
     const key = emailToKey(email);
+    const nameKey = name.toLowerCase();
+    // Final check in case the name was taken while this signup was pending verification
+    const nameSnap = await get(ref(db, 'displayNames/' + nameKey));
+    if (nameSnap.exists()) {
+      setVerifyStatus('That display name was just taken by someone else. Please go back and pick another.');
+      return;
+    }
     const salt = generateSalt();
     const hashed = await hashPassword(pass, salt);
     await set(ref(db, 'accounts/' + key), { email, displayName: name, salt, ph: hashed, created: Date.now() });
+    await set(ref(db, 'displayNames/' + nameKey), email);
     // Auto-set owner role in Firebase if this is the owner email
     if (email.toLowerCase().trim() === OWNER_EMAIL) {
       await set(ref(db, 'roles/' + key), 'owner');
@@ -1279,6 +1297,9 @@ async function doSignUp() {
     const key = emailToKey(email);
     const existing = await get(ref(db, 'accounts/' + key));
     if (existing.exists()) { setAuthStatus('suStatus', 'An account with this email already exists. Please sign in.'); return; }
+    const nameKey = name.toLowerCase();
+    const nameSnap = await get(ref(db, 'displayNames/' + nameKey));
+    if (nameSnap.exists()) { setAuthStatus('suStatus', 'That display name is already taken. Please choose another.'); return; }
     const code = generateVerifyCode();
     pendingSignup = { email, name, pass, code };
     setAuthStatus('suStatus', 'Sending verification code…', 'ok');
@@ -1772,6 +1793,123 @@ document.getElementById('msgInput').addEventListener('input', function() {
   if (matches.length) { hint.textContent = matches.join('   '); hint.classList.add('show'); }
   else { hint.classList.remove('show'); }
 });
+
+// ── MENTION NOTIFIER (standalone tab) ─────────────────────────
+// Opens an about:blank tab and injects a fully self-contained mini-app
+// into it, with its own Firebase connection. It keeps working even if
+// the main ROOMS tab is closed. It only watches the single room the
+// user was in when they clicked the button, and only alerts on
+// "@username" (whole word, case-insensitive) in new messages, never
+// on the user's own messages.
+function openMentionNotifier() {
+  if (!currentRoom || !currentUser) { toast('Join a room first'); return; }
+
+  const notifTab = window.open('about:blank', '_blank');
+  if (!notifTab) { toast('Popup blocked — please allow popups for this site'); return; }
+
+  // Escape values that get embedded into the injected document as JS string literals
+  const escJs = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3C');
+  const roomForTab = escJs(currentRoom);
+  const userForTab = escJs(currentUser);
+
+  const doc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mention Notifier — #${currentRoom.replace(/</g,'&lt;')}</title>
+<style>
+  body { background:#08090a; color:#e8eaed; font-family:'Space Mono',monospace; min-height:100vh; margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem; text-align:center; padding:2rem; }
+  h1 { font-size:1rem; letter-spacing:0.1em; text-transform:uppercase; color:#39ff9c; margin:0; }
+  p { font-size:0.7rem; color:#888; margin:0; line-height:1.6; }
+  .status { font-size:0.6rem; color:#555; margin-top:1rem; }
+  .dot { width:6px; height:6px; border-radius:50%; background:#39ff9c; display:inline-block; animation:blink 1.4s infinite; margin-right:0.4rem; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+</style>
+</head>
+<body>
+  <h1><span class="dot"></span>Mention Notifier</h1>
+  <p>Watching <strong style="color:#e8eaed">#${currentRoom.replace(/</g,'&lt;')}</strong> for mentions of <strong style="color:#e8eaed">@${currentUser.replace(/</g,'&lt;')}</strong>.<br>Keep this tab open in the background.</p>
+  <div class="status" id="status">starting…</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
+  authDomain: "project-50a73.firebaseapp.com",
+  databaseURL: "https://project-50a73-default-rtdb.firebaseio.com",
+  projectId: "project-50a73",
+  storageBucket: "project-50a73.firebasestorage.app",
+  messagingSenderId: "395823874797",
+  appId: "1:395823874797:web:a408782869b31984a342e4"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const ROOM = '${roomForTab}';
+const ME = '${userForTab}';
+function escRe(s) { return s.replace(/[-\/\\^]/g, '\\\\$&').replace(/[.*+?^()|[\\]{}]/g, '\\\\$&'); }
+const mentionRe = new RegExp('(^|[^a-z0-9_])@' + escRe(ME) + '([^a-z0-9_]|$)', 'i');
+
+const statusEl = document.getElementById('status');
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+async function requestPerm() {
+  if (!('Notification' in window)) { statusEl.textContent = 'Notifications not supported in this browser.'; return false; }
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') { statusEl.textContent = 'Notifications blocked — enable them in your browser settings.'; return false; }
+  const perm = await Notification.requestPermission();
+  return perm === 'granted';
+}
+
+let seenIds = new Set();
+let firstLoad = true;
+
+requestPerm().then(granted => {
+  statusEl.textContent = granted ? 'listening for mentions…' : 'listening (notifications off — sound only)…';
+  const msgsRef = ref(db, 'messages/' + ROOM);
+  onValue(msgsRef, snap => {
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const id = child.key;
+      const val = child.val();
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+      if (firstLoad) return; // don't alert on message history when tab opens
+      if (!val || val.type !== 'user' || val.user === ME) return;
+      if (!val.text || !mentionRe.test(val.text)) return;
+
+      beep();
+      if (Notification.permission === 'granted') {
+        const n = new Notification('Mentioned by ' + val.user, { body: val.text.slice(0, 140) });
+        n.onclick = () => window.focus();
+      }
+      statusEl.textContent = 'last mention: ' + new Date().toLocaleTimeString();
+    });
+    firstLoad = false;
+  });
+});
+<\/script>
+</body>
+</html>`;
+
+  notifTab.document.open();
+  notifTab.document.write(doc);
+  notifTab.document.close();
+}
+
+document.getElementById('btnMentionNotifier').addEventListener('click', openMentionNotifier);
 
 // ── ENTER / LEAVE ROOM ───────────────────────────────────────
 function enterRoom(roomName, username) {
