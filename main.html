@@ -825,6 +825,12 @@
       <span id="lobbyRoleBadge"></span>
       <button class="btn-pill-signout" id="btnSignOut">sign out</button>
     </div>
+    <div class="user-pill" id="verifyBanner" style="display:none;border-color:var(--warn,#e8a33d);color:var(--warn,#e8a33d);">
+      <div class="dot" style="background:var(--warn,#e8a33d);"></div>
+      <span>Verify your email to send messages — check your inbox for the link.</span>
+      <button class="btn-pill-signout" id="btnCheckVerified">I clicked it — refresh</button>
+      <button class="btn-pill-signout" id="btnResendVerify">Resend</button>
+    </div>
   </div>
   <div class="lobby-wrap">
     <div class="panel">
@@ -1012,6 +1018,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getDatabase, ref, set, get, push, onValue, off, serverTimestamp, remove
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import {
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  signOut, onAuthStateChanged, sendEmailVerification, reload
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
@@ -1025,6 +1035,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
 const WORKER_URL = 'https://dawn-lab-9a85.lb6486262.workers.dev/';
 
@@ -1052,11 +1063,21 @@ function generateSalt() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
+// If a Firebase call hangs (bad network, blocked request, etc.) this makes
+// it fail loudly with a clear error after 12s instead of leaving the UI
+// stuck forever with no feedback.
+function withTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting on: ' + label)), 12000))
+  ]);
+}
+
 function emailToKey(email) {
   return btoa(email.toLowerCase().trim()).replace(/[.#$/[\]]/g, '_');
 }
 
-async function hashRoomPass(p) { return sha256(p); }
+async function hashRoomPass(p, salt) { return hashPassword(p, salt); }
 
 // ── ROLE HELPERS ─────────────────────────────────────────────
 function getRole(email) {
@@ -1069,10 +1090,16 @@ async function fetchRole(email) {
   if (!email) return null;
   const e = email.toLowerCase().trim();
   if (e === OWNER_EMAIL) return 'owner';
+  const fbUser = auth.currentUser;
+  if (!fbUser || fbUser.email.toLowerCase() !== e) return null; // no verified identity yet
   try {
-    const key = emailToKey(e);
-    const snap = await get(ref(db, 'roles/' + key));
-    return snap.exists() ? snap.val() : null;
+    // roles/{uid} can only be set by the owner (or, once, by the account
+    // whose Auth email is the hardcoded owner email) — enforced entirely by
+    // database rules, no Cloud Function required. This read is safe either
+    // way since it's just displaying whatever role the rules already let
+    // get written.
+    const roleSnap = await withTimeout(get(ref(db, 'roles/' + fbUser.uid)), 'reading role');
+    return roleSnap.exists() ? roleSnap.val() : null;
   } catch(err) { return null; }
 }
 
@@ -1099,7 +1126,7 @@ const userRoleMap = {};
 
 // ── HELPERS ──────────────────────────────────────────────────
 function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function toast(msg, type='error') {
@@ -1254,18 +1281,46 @@ async function submitVerifyCode(entered) {
       setVerifyStatus('That display name was just taken by someone else. Please go back and pick another.');
       return;
     }
-    const salt = generateSalt();
-    const hashed = await hashPassword(pass, salt);
-    await set(ref(db, 'accounts/' + key), { email, displayName: name, salt, ph: hashed, created: Date.now() });
+    // Create the Firebase Auth credential FIRST. Everything written after
+    // this point is gated by rules on `auth.token.email` matching the
+    // record being written — so this has to exist before we touch
+    // accounts/ or displayNames/, or those writes would be rejected (and,
+    // before this fix, would have been accepted from ANY signed-in user for
+    // ANY account — that was the account-takeover hole).
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (authErr) {
+      if (authErr.code === 'auth/email-already-in-use') {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        throw authErr;
+      }
+    }
+    // Real, Firebase-hosted email verification link — this is the actual
+    // security boundary now (checked server-side via auth.token.email_verified
+    // in rules). The 3-digit code above is a nice UX speed bump but was never
+    // provable server-side, so it no longer gates anything on its own.
+    await sendEmailVerification(auth.currentUser).catch(() => {});
+    // accounts/ no longer stores a password hash for new signups — Firebase
+    // Auth IS the password store now. Rules only let you write the record
+    // whose 'email' matches your own authenticated email, so no one else
+    // can create or overwrite it.
+    await set(ref(db, 'accounts/' + key), { email, displayName: name, created: Date.now() });
     await set(ref(db, 'displayNames/' + nameKey), email);
-    // Auto-set owner role in Firebase if this is the owner email
-    if (email.toLowerCase().trim() === OWNER_EMAIL) {
-      await set(ref(db, 'roles/' + key), 'owner');
+    // Self-written, one-time email→uid lookup (rules enforce "only your own
+    // uid, only once") so the owner's client can resolve emails to uids for
+    // role grants without a Cloud Function.
+    await set(ref(db, 'emailToUid/' + key), auth.currentUser.uid).catch(() => {});
+    // Owner role bootstrap: rules allow a user to self-write roles/{their-uid}
+    // = 'owner' exactly once, and only if their real Firebase Auth email
+    // matches the hardcoded OWNER_EMAIL. Everyone else gets no role here.
+    if (email === OWNER_EMAIL) {
+      await set(ref(db, 'roles/' + auth.currentUser.uid), 'owner').catch(() => {});
     }
     const role = await fetchRole(email);
     saveSession(email, name, role);
     setTimeout(() => { hideVerifyPanel(); enterLobby(); }, 700);
-  } catch(e) { setVerifyStatus('Something went wrong. Please try again.'); console.error(e); }
+  } catch(e) { setVerifyStatus('Error: ' + (e.code || e.message || e)); console.error(e); }
 }
 
 document.getElementById('btnResend').addEventListener('click', async () => {
@@ -1304,7 +1359,7 @@ async function doSignUp() {
     pendingSignup = { email, name, pass, code };
     setAuthStatus('suStatus', 'Sending verification code…', 'ok');
     await showVerifyPanel(email, code);
-  } catch(e) { setAuthStatus('suStatus', 'Something went wrong. Please try again.'); console.error(e); }
+  } catch(e) { setAuthStatus('suStatus', 'Error: ' + (e.code || e.message || e)); console.error(e); }
   finally { btn.disabled = false; btn.textContent = 'Create Account →'; }
 }
 
@@ -1318,20 +1373,61 @@ async function doSignIn() {
   btn.disabled = true; btn.textContent = 'Signing in…';
   try {
     const key = emailToKey(email);
-    const snap = await get(ref(db, 'accounts/' + key));
-    if (!snap.exists()) { setAuthStatus('siStatus', 'No account found with that email.'); return; }
-    const data = snap.val();
-    const hashed = await hashPassword(pass, data.salt);
-    if (hashed !== data.ph) { setAuthStatus('siStatus', 'Incorrect password. Please try again.'); return; }
-    // Ensure owner role is written to Firebase
+    let usedLegacyFallback = false;
+    // Firebase Auth is the real, server-verified password check now — try it
+    // first. This also sidesteps the old chicken-and-egg bug where the app
+    // tried to read accounts/ (to check the PBKDF2 hash) before establishing
+    // any auth session, which rules requiring auth != null would reject
+    // outright for a first-time sign-in in a fresh browser.
+    try {
+      await withTimeout(signInWithEmailAndPassword(auth, email, pass), 'sign in');
+    } catch (authErr) {
+      if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/wrong-password') {
+        // Could be: wrong password on an existing Firebase Auth account, OR a
+        // genuinely pre-migration account that never got a Firebase Auth
+        // credential. Only accounts/ (readable, but no longer writable by
+        // anyone but their own owner) can tell us which.
+        const snap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
+        if (!snap.exists()) { setAuthStatus('siStatus', 'No account found with that email.'); return; }
+        const data = snap.val();
+        if (!data.salt || !data.ph) {
+          // Firebase Auth account exists (has no legacy hash to fall back
+          // on) — this really was just a wrong password.
+          setAuthStatus('siStatus', 'Incorrect password. Please try again.');
+          return;
+        }
+        const hashed = await hashPassword(pass, data.salt);
+        if (hashed !== data.ph) { setAuthStatus('siStatus', 'Incorrect password. Please try again.'); return; }
+        // Password matches the legacy hash — migrate them to a real Firebase
+        // Auth credential now, one time only.
+        await withTimeout(createUserWithEmailAndPassword(auth, email, pass), 'creating auth credential');
+        usedLegacyFallback = true;
+      } else {
+        throw authErr;
+      }
+    }
+    const accSnap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
+    const accData = accSnap.exists() ? accSnap.val() : { email, displayName: email };
+    // Make sure the email→uid mapping and (for the owner) the owner role
+    // exist. Both writes are self-scoped and one-time — rules reject them
+    // once already set, so this is safe to run on every login.
+    await withTimeout(set(ref(db, 'emailToUid/' + key), auth.currentUser.uid), 'linking account').catch(() => {});
     if (email === OWNER_EMAIL) {
-      await set(ref(db, 'roles/' + key), 'owner');
+      await withTimeout(set(ref(db, 'roles/' + auth.currentUser.uid), 'owner'), 'setting owner role').catch(() => {});
+    }
+    if (usedLegacyFallback) {
+      // Now that they have a real Firebase Auth credential, drop the PBKDF2
+      // hash from accounts/ — it's redundant and shrinks what a public read
+      // of accounts/ exposes going forward. Allowed because auth.token.email
+      // now matches this record's email (rules check exactly that).
+      await withTimeout(set(ref(db, 'accounts/' + key), { email: accData.email, displayName: accData.displayName, created: accData.created || Date.now() }), 'cleaning up account').catch(() => {});
+      await sendEmailVerification(auth.currentUser).catch(() => {});
     }
     const role = await fetchRole(email);
-    saveSession(data.email, data.displayName, role);
+    saveSession(accData.email, accData.displayName, role);
     setAuthStatus('siStatus', 'Welcome back!', 'ok');
     setTimeout(() => enterLobby(), 700);
-  } catch(e) { setAuthStatus('siStatus', 'Something went wrong. Please try again.'); console.error(e); }
+  } catch(e) { setAuthStatus('siStatus', 'Error: ' + (e.code || e.message || e)); console.error(e); }
   finally { btn.disabled = false; btn.textContent = 'Sign In →'; }
 }
 
@@ -1345,11 +1441,54 @@ function enterLobby() {
     document.getElementById('cUser').value = currentSession.displayName;
     document.getElementById('jUser').value = currentSession.displayName;
   }
+  updateVerifyBanner();
   loadChips();
 }
 
+// ── EMAIL VERIFICATION STATE ────────────────────────────────
+// auth.currentUser.emailVerified reflects the LAST fetched ID token. It only
+// updates after reload()+a forced token refresh, which is why we do both
+// on lobby entry and when the person says they've clicked the link — rules
+// check `auth.token.email_verified`, so the token has to actually be fresh
+// for message sends to work post-verification.
+async function updateVerifyBanner() {
+  const banner = document.getElementById('verifyBanner');
+  if (!auth.currentUser) { banner.style.display = 'none'; return; }
+  try { await withTimeout(reload(auth.currentUser), 'checking verification'); } catch(e) {}
+  banner.style.display = auth.currentUser.emailVerified ? 'none' : 'flex';
+}
+
+document.getElementById('btnCheckVerified').addEventListener('click', async () => {
+  const btn = document.getElementById('btnCheckVerified');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    if (auth.currentUser) {
+      await reload(auth.currentUser);
+      await auth.currentUser.getIdToken(true); // force-refresh so rules see it
+    }
+    if (auth.currentUser && auth.currentUser.emailVerified) {
+      document.getElementById('verifyBanner').style.display = 'none';
+      toast('Email verified — you can send messages now.', 'success');
+    } else {
+      toast('Not verified yet — check your inbox (and spam folder).');
+    }
+  } catch(e) { toast('Something went wrong checking verification.'); }
+  finally { btn.disabled = false; btn.textContent = "I clicked it — refresh"; }
+});
+
+document.getElementById('btnResendVerify').addEventListener('click', async () => {
+  const btn = document.getElementById('btnResendVerify');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+    toast('Verification email sent.', 'success');
+  } catch(e) { toast('Failed to resend — try again shortly.'); }
+  finally { btn.disabled = false; btn.textContent = 'Resend'; }
+});
+
 function doSignOut() {
   clearSession();
+  signOut(auth).catch(() => {}); // best-effort; local session is already cleared regardless
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('chatroom').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -1446,33 +1585,44 @@ async function loadRolesList() {
   const listEl = document.getElementById('rolesList');
   listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span>';
   try {
-    const snap = await get(ref(db, 'roles'));
-    if (!snap.exists()) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">No roles assigned yet.</span>'; return; }
-    const roles = snap.val();
-    // Fetch emails for each key
-    const items = [];
-    for (const [key, role] of Object.entries(roles)) {
-      // Try to get email from accounts
-      const accSnap = await get(ref(db, 'accounts/' + key));
-      const email = accSnap.exists() ? accSnap.val().email : atob(key.replace(/_/g, '='));
-      items.push({ key, email, role });
-    }
-    listEl.innerHTML = items.map(({ key, email, role }) => `
+    // emailToUid/ (self-written once by each account at signup/login) lets
+    // the owner resolve an email to a uid client-side. roles/{uid} is the
+    // actual source of truth rules check — written directly by the owner,
+    // no Cloud Function involved.
+    const [mapSnap, rolesSnap] = await Promise.all([
+      get(ref(db, 'emailToUid')),
+      get(ref(db, 'roles'))
+    ]);
+    const emailMap = mapSnap.exists() ? mapSnap.val() : {};   // { emailKey: uid }
+    const roles = rolesSnap.exists() ? rolesSnap.val() : {};  // { uid: role }
+    const items = Object.entries(emailMap)
+      .map(([emailKey, uid]) => ({ emailKey, uid, role: roles[uid] || null }))
+      .filter(item => item.role);
+    if (items.length === 0) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">No roles assigned yet.</span>'; return; }
+    // We only have the email key (base64-ish), not the plain email, from this
+    // map — pull the real address out of accounts/ for display.
+    const accountsSnap = await get(ref(db, 'accounts'));
+    const accounts = accountsSnap.exists() ? accountsSnap.val() : {};
+    listEl.innerHTML = items.map(({ emailKey, uid, role }) => {
+      const email = (accounts[emailKey] && accounts[emailKey].email) || emailKey;
+      return `
       <div class="role-list-item">
         <span class="role-list-email" title="${esc(email)}">${esc(email)}</span>
         <div class="role-list-actions">
           ${roleBadgeHTML(role)}
-          ${role !== 'owner' ? `<button class="role-remove-x" data-key="${esc(key)}" data-email="${esc(email)}">✕</button>` : ''}
+          ${role !== 'owner' ? `<button class="role-remove-x" data-uid="${esc(uid)}" data-email="${esc(email)}">✕</button>` : ''}
         </div>
       </div>
-    `).join('');
+    `; }).join('');
     listEl.querySelectorAll('.role-remove-x').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const k = btn.dataset.key;
+        const uid = btn.dataset.uid;
         const em = btn.dataset.email;
         if (em === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
-        await remove(ref(db, 'roles/' + k));
-        setRolesStatus(`Removed role from ${em}`, 'ok');
+        try {
+          await remove(ref(db, 'roles/' + uid));
+          setRolesStatus(`Removed role from ${em}`, 'ok');
+        } catch(e) { setRolesStatus('Failed to remove role (are you the owner?).', 'err'); }
         loadRolesList();
       });
     });
@@ -1487,11 +1637,21 @@ async function assignRole() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setRolesStatus('Invalid email format.', 'err');
   try {
     const key = emailToKey(email);
-    await set(ref(db, 'roles/' + key), role);
+    // Resolve the target's Firebase Auth uid from the self-written map. If
+    // they haven't signed up yet, there's nothing to resolve — no server-side
+    // fallback on the Spark plan, so ask the owner to try again after signup.
+    const uidSnap = await get(ref(db, 'emailToUid/' + key));
+    if (!uidSnap.exists()) {
+      return setRolesStatus(`${email} hasn't signed up yet. Ask them to create an account, then try again.`, 'err');
+    }
+    const uid = uidSnap.val();
+    // Only an existing owner's Firebase Auth account can write roles/ for
+    // someone else — enforced by rules (root.child('roles').child(auth.uid) === 'owner').
+    await set(ref(db, 'roles/' + uid), role);
     document.getElementById('roleEmail').value = '';
     setRolesStatus(`✓ Assigned ${role} to ${email}`, 'ok');
     loadRolesList();
-  } catch(e) { setRolesStatus('Failed to assign role.', 'err'); }
+  } catch(e) { setRolesStatus('Failed to assign role (are you the owner?).', 'err'); }
 }
 
 async function removeRole() {
@@ -1500,7 +1660,9 @@ async function removeRole() {
   if (email === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
   try {
     const key = emailToKey(email);
-    await remove(ref(db, 'roles/' + key));
+    const uidSnap = await get(ref(db, 'emailToUid/' + key));
+    if (!uidSnap.exists()) return setRolesStatus(`${email} hasn't signed up yet.`, 'err');
+    await remove(ref(db, 'roles/' + uidSnap.val()));
     document.getElementById('roleRemoveEmail').value = '';
     setRolesStatus(`✓ Removed role from ${email}`, 'ok');
     loadRolesList();
@@ -1551,8 +1713,9 @@ async function createRoom() {
   setLoading(true);
   const snap = await get(ref(db, 'rooms/' + name));
   if (snap.exists()) { setLoading(false); return toast(`"${name}" already exists — join it`); }
-  const h = await hashRoomPass(pass);
-  await set(ref(db, 'rooms/' + name), { h, created: Date.now(), msgCount: 0 });
+  const salt = generateSalt();
+  const h = await hashRoomPass(pass, salt);
+  await set(ref(db, 'rooms/' + name), { h, salt, created: Date.now(), msgCount: 0 });
   setLoading(false);
   enterRoom(name, user);
 }
@@ -1567,8 +1730,25 @@ async function joinRoom() {
   setLoading(true);
   const snap = await get(ref(db, 'rooms/' + name));
   if (!snap.exists()) { setLoading(false); return toast(`Room "${name}" not found`); }
-  const h = await hashRoomPass(pass);
-  if (snap.val().h !== h) { setLoading(false); return toast('Wrong password'); }
+  const roomData = snap.val();
+  let ok = false;
+  if (roomData.salt) {
+    // Current (salted) rooms
+    const h = await hashRoomPass(pass, roomData.salt);
+    ok = roomData.h === h;
+  } else {
+    // Legacy rooms created before salting was added — check old unsalted hash,
+    // then transparently upgrade them to a salted hash on successful login.
+    const legacyH = await sha256(pass);
+    ok = roomData.h === legacyH;
+    if (ok) {
+      const salt = generateSalt();
+      const newH = await hashRoomPass(pass, salt);
+      await set(ref(db, 'rooms/' + name + '/salt'), salt);
+      await set(ref(db, 'rooms/' + name + '/h'), newH);
+    }
+  }
+  if (!ok) { setLoading(false); return toast('Wrong password'); }
   setLoading(false);
   enterRoom(name, user);
 }
@@ -1654,7 +1834,7 @@ function buildThemeSwatches() {
 
 async function applyThemeForRoom(color) {
   if (!currentRoom) return;
-  await set(ref(db, 'controls/' + currentRoom + '/theme'), { color, ts: Date.now() });
+  await set(ref(db, 'controls/' + currentRoom + '/theme'), { color, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
   const el = document.getElementById('themeStatus');
   el.textContent = '✓ Theme applied for everyone'; el.className = 'roles-status ok';
   setTimeout(() => { el.className = 'roles-status'; }, 2500);
@@ -1695,7 +1875,7 @@ async function handleCommand(text) {
     if (currentUserRole !== 'owner') return toast('Only owner can kick');
     const target = parts[1];
     if (!target) return toast('Usage: /kick <username>');
-    await set(ref(db, 'controls/' + currentRoom + '/kick'), { target, ts: Date.now() });
+    await set(ref(db, 'controls/' + currentRoom + '/kick'), { target, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
     await pushMsg({ type: 'system', text: target + ' was kicked by ' + currentUser });
     toast('Kicked ' + target, 'success');
     return;
@@ -1710,7 +1890,7 @@ async function handleCommand(text) {
       seconds = 30;
       toast('Mods can only mute up to 30s. Capped at 30s.', 'success');
     }
-    await set(ref(db, 'controls/' + currentRoom + '/mute'), { target, seconds, ts: Date.now() });
+    await set(ref(db, 'controls/' + currentRoom + '/mute'), { target, seconds, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
     await pushMsg({ type: 'system', text: target + ' was muted for ' + seconds + 's by ' + currentUser });
     toast('Muted ' + target + ' for ' + seconds + 's', 'success');
     return;
@@ -1969,7 +2149,10 @@ function resetChatState() {
 async function pushMsg(m) {
   if (!currentRoom) return;
   const msgData = { ...m, ts: Date.now() };
-  if (m.type === 'user' && currentUserRole) msgData.role = currentUserRole;
+  if (m.type === 'user') {
+    if (currentUserRole) msgData.role = currentUserRole;
+    if (auth.currentUser) msgData.uid = auth.currentUser.uid; // lets rules verify claimed role
+  }
   await push(ref(db, 'messages/' + currentRoom), msgData);
   const countRef = ref(db, 'rooms/' + currentRoom + '/msgCount');
   const snap = await get(countRef);
@@ -1981,6 +2164,12 @@ async function sendMsg() {
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text || !currentRoom) return;
+  if (!auth.currentUser || !auth.currentUser.emailVerified) {
+    // Rules will reject this write server-side regardless — this is just a
+    // friendlier message than a raw permission-denied error.
+    toast('Verify your email before sending messages (check the lobby banner).');
+    return;
+  }
   input.value = '';
   document.getElementById('cmdHint').classList.remove('show');
   input.focus();
@@ -2013,64 +2202,4 @@ function renderMsgs(msgs) {
     const role = m.role || null;
     const roleClass = role ? `is-${role}` : '';
     const badge = (!mine && role) ? roleBadgeHTML(role) : '';
-    const myBadge = (mine && currentUserRole) ? roleBadgeHTML(currentUserRole) : '';
-    const isVip = role === 'vip';
-    const unameHTML = isVip
-      ? `<span class="uname" style="color:var(--owner);font-weight:700">${esc(m.user)}</span>`
-      : `<span class="uname">${esc(m.user)}</span>`;
-    const trashBtn = isOwner ? `<button class="btn-delete-msg" data-id="${esc(m.id)}" title="Delete message">🗑️</button>` : '';
-    return `<div class="msg-wrap ${mine?'mine':'theirs'} ${roleClass}">
-      ${trashBtn ? `<div class="msg-actions">${trashBtn}</div>` : ''}
-      <div class="msg ${mine?'mine':'theirs'} ${roleClass}">
-        <div class="meta">${mine ? myBadge : (unameHTML + badge + ' · ')}${time}</div>
-        <div class="bubble">${esc(m.text)}</div>
-      </div>
-    </div>`;
-  }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
-
-  // Attach delete listeners
-  wrap.querySelectorAll('.btn-delete-msg').forEach(btn => {
-    btn.addEventListener('click', () => deleteMessage(btn.dataset.id));
-  });
-
-  if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
-}
-
-function calcOnline(msgs) {
-  const cutoff = Date.now() - 8 * 60000;
-  const s = new Set();
-  msgs.forEach(m => {
-    if (m.type === 'user' && m.ts > cutoff) s.add(m.user);
-    if (m.type === 'system' && m.ts > cutoff) { const x = m.text.match(/^(.+) joined$/); if (x) s.add(x[1]); }
-  });
-  if (currentUser) s.add(currentUser);
-  document.getElementById('hOnline').textContent = Math.max(1, s.size);
-}
-
-document.getElementById('btnCreate').addEventListener('click', createRoom);
-document.getElementById('btnJoin').addEventListener('click', joinRoom);
-document.getElementById('btnLeave').addEventListener('click', leaveRoom);
-document.getElementById('btnSend').addEventListener('click', sendMsg);
-document.getElementById('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
-['cName','cPass','cUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : createRoom(); }); });
-['jName','jPass','jUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : joinRoom(); }); });
-
-// ── INIT ─────────────────────────────────────────────────────
-loadPanicConfig();
-updatePanicIndicator();
-loadSession();
-
-if (currentSession) {
-  // Re-fetch role in case it changed since last session
-  fetchRole(currentSession.email).then(role => {
-    currentSession.role = role;
-    sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
-    enterLobby();
-  });
-} else {
-  document.getElementById('authScreen').style.display = 'flex';
-}
-setInterval(loadChips, 10000);
-</script>
-</body>
-</html>
+    const myBadge = (mine && currentUserRole) ? roleBadge
