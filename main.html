@@ -1015,13 +1015,6 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getDatabase, ref, set, get, push, onValue, off, serverTimestamp, remove
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-import {
-  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signOut, onAuthStateChanged, sendEmailVerification, reload
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
@@ -1034,8 +1027,250 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
+// ── AUTH — REST API SHIM (not the Firebase Auth SDK) ────────────────────
+// The database hang got fixed by switching to plain HTTPS fetch() instead
+// of the SDK's WebSocket layer. Turns out Auth has the same problem for
+// account creation specifically: the SDK can trigger a bot-protection
+// (reCAPTCHA) challenge on sign-up that loads a Google script/iframe —
+// which, like WebSockets, doesn't reliably initialize from a file:// page,
+// so it hangs instead of erroring. Sign-IN of an existing account doesn't
+// trigger that challenge, which is why sign-in worked but sign-up hung.
+// Firebase Auth's REST API (Identity Toolkit) does signup/signin/email
+// verification over plain HTTPS POST — same fix, same reasoning as the
+// database shim below. No SDK, no iframe, no hang.
+const IDT_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+const TOKEN_URL = 'https://securetoken.googleapis.com/v1/token';
+const API_KEY = firebaseConfig.apiKey;
+
+function mapAuthError(body) {
+  const msg = (body && body.error && body.error.message) || 'unknown-error';
+  const codeMap = {
+    'EMAIL_EXISTS': 'auth/email-already-in-use',
+    'EMAIL_NOT_FOUND': 'auth/user-not-found',
+    'INVALID_PASSWORD': 'auth/wrong-password',
+    'INVALID_LOGIN_CREDENTIALS': 'auth/invalid-credential',
+    'USER_DISABLED': 'auth/user-disabled'
+  };
+  const code = codeMap[msg] || ('auth/' + msg.toLowerCase().replace(/[: ]/g, '-'));
+  const e = new Error(code);
+  e.code = code;
+  return e;
+}
+
+async function identityToolkitPost(endpoint, body) {
+  const res = await fetch(IDT_URL + ':' + endpoint + '?key=' + API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw mapAuthError(data);
+  return data;
+}
+
+function makeUser(data) {
+  const mintedAt = Date.now();
+  const expiresInMs = (Number(data.expiresIn) || 3600) * 1000;
+  return {
+    uid: data.localId,
+    email: data.email,
+    emailVerified: data.emailVerified === true || data.emailVerified === 'true',
+    idToken: data.idToken,
+    refreshToken: data.refreshToken,
+    _expiresAt: mintedAt + expiresInMs,
+    async getIdToken(forceRefresh) {
+      let nearExpiry = false;
+      try { nearExpiry = Date.now() > (this._expiresAt - 5 * 60000); } catch(e) {}
+      if ((forceRefresh || nearExpiry) && this.refreshToken) {
+        try {
+          const res = await fetch(TOKEN_URL + '?key=' + API_KEY, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(this.refreshToken)
+          });
+          const d = await res.json();
+          if (res.ok) {
+            this.idToken = d.id_token;
+            this.refreshToken = d.refresh_token;
+            this._expiresAt = Date.now() + (Number(d.expires_in) || 3600) * 1000;
+          }
+        } catch (e) { /* keep the existing token if refresh fails */ }
+      }
+      return this.idToken;
+    }
+  };
+}
+
+const _authListeners = [];
+const auth = {
+  currentUser: null,
+  _notify() { _authListeners.forEach(cb => cb(this.currentUser)); }
+};
+
+function onAuthStateChanged(_auth, callback) {
+  _authListeners.push(callback);
+  callback(auth.currentUser);
+  return () => { const i = _authListeners.indexOf(callback); if (i > -1) _authListeners.splice(i, 1); };
+}
+
+async function createUserWithEmailAndPassword(_auth, email, pass) {
+  const data = await identityToolkitPost('signUp', { email, password: pass, returnSecureToken: true });
+  auth.currentUser = makeUser(data);
+  auth._notify();
+  return { user: auth.currentUser };
+}
+
+async function signInWithEmailAndPassword(_auth, email, pass) {
+  const data = await identityToolkitPost('signInWithPassword', { email, password: pass, returnSecureToken: true });
+  auth.currentUser = makeUser(data);
+  auth._notify();
+  return { user: auth.currentUser };
+}
+
+async function signOut(_auth) {
+  auth.currentUser = null;
+  auth._notify();
+}
+
+async function sendEmailVerification(user) {
+  if (!user) return;
+  await identityToolkitPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: user.idToken });
+}
+
+async function reload(user) {
+  if (!user) return;
+  const res = await fetch(IDT_URL + ':lookup?key=' + API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: user.idToken })
+  });
+  const data = await res.json();
+  if (res.ok && data.users && data.users[0]) {
+    user.emailVerified = data.users[0].emailVerified === true;
+    user.email = data.users[0].email;
+  }
+}
+
+// ── DATABASE — REST API SHIM (not the Realtime Database SDK) ───────────
+// The Realtime Database JS SDK talks over WebSockets (with an XHR
+// long-polling fallback). Both depend on a real Origin header, which
+// file:// pages don't send correctly — so the SDK doesn't error, it just
+// hangs forever waiting on a connection that will never complete. That was
+// the actual cause of every "timed out" error above.
+// Firebase also exposes the exact same data over a plain HTTPS REST API
+// (https://project.firebaseio.com/path.json), which is just an ordinary
+// fetch() — no WebSocket, no special Origin handling required. That's
+// exactly what worked when you tested the .json URL directly in a tab.
+// This shim reimplements get/set/push/remove/onValue/off/ref on top of
+// that REST API with the *same call signatures* used everywhere else in
+// this file, so nothing else below has to change. The one real behavior
+// difference: onValue can't get instant server pushes over plain HTTPS, so
+// it polls every 2.5s instead — messages/controls update within ~2.5s
+// instead of instantly. Everything else (auth, rules, permissions) works
+// identically either way, since rules are enforced the same regardless of
+// which transport reads/writes the data.
+const DB_URL = firebaseConfig.databaseURL.replace(/\/$/, '');
+
+function ref(_db, path) {
+  return { path: String(path).replace(/^\/+|\/+$/g, '') };
+}
+
+async function authQueryString() {
+  if (auth.currentUser) {
+    try {
+      const token = await auth.currentUser.getIdToken();
+      return '?auth=' + encodeURIComponent(token);
+    } catch (e) { /* fall through unauthenticated */ }
+  }
+  return '';
+}
+
+function makeSnapshot(val, key = null) {
+  return {
+    key,
+    exists: () => val !== null && val !== undefined,
+    val: () => val,
+    forEach(cb) {
+      if (typeof val !== 'object' || val === null) return false;
+      for (const k of Object.keys(val)) {
+        const childSnap = makeSnapshot(val[k], k);
+        if (cb(childSnap) === true) return true; // early exit if callback returns true, matching Firebase's real forEach
+      }
+      return false;
+    }
+  };
+}
+
+async function get(refObj) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q);
+  if (!res.ok) {
+    let body = '';
+    try { body = await res.text(); } catch(e2) {}
+    const e = new Error('permission_denied');
+    e.code = 'PERMISSION_DENIED';
+    e.httpStatus = res.status;
+    e.body = body;
+    e.path = refObj.path;
+    throw e;
+  }
+  const val = await res.json();
+  return makeSnapshot(val);
+}
+
+async function set(refObj, value) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value === undefined ? null : value)
+  });
+  if (!res.ok) { const e = new Error('permission_denied'); e.code = 'PERMISSION_DENIED'; throw e; }
+  return res.json();
+}
+
+async function remove(refObj) { return set(refObj, null); }
+
+async function push(refObj, value) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value)
+  });
+  if (!res.ok) { const e = new Error('permission_denied'); e.code = 'PERMISSION_DENIED'; throw e; }
+  const data = await res.json();
+  return { key: data.name };
+}
+
+function serverTimestamp() { return Date.now(); } // client clock — fine for this app's needs
+
+const _pollers = {};
+function onValue(refObj, callback, onError) {
+  const path = refObj.path;
+  let stopped = false;
+  let consecutiveErrors = 0;
+  async function poll() {
+    if (stopped) return;
+    try { const snap = await get(refObj); consecutiveErrors = 0; callback(snap); }
+    catch (e) {
+      consecutiveErrors++;
+      if (consecutiveErrors === 1 && onError) onError(e);
+      /* keep polling through transient errors either way */
+    }
+  }
+  poll();
+  const intervalId = setInterval(poll, 2500);
+  (_pollers[path] = _pollers[path] || []).push(intervalId);
+  return () => { stopped = true; clearInterval(intervalId); };
+}
+
+function off(refObj) {
+  const path = refObj.path;
+  if (_pollers[path]) { _pollers[path].forEach(id => clearInterval(id)); _pollers[path] = []; }
+}
+
+const db = { __shim: true }; // placeholder passed to ref(db, path) calls below — unused otherwise
 
 const WORKER_URL = 'https://dawn-lab-9a85.lb6486262.workers.dev/';
 
@@ -2114,6 +2349,17 @@ function enterRoom(roomName, username) {
     const msgs = [];
     if (snap.exists()) { snap.forEach(child => { const val = child.val(); if (val && val.ts) msgs.push({ id: child.key, ...val }); }); msgs.sort((a,b) => a.ts-b.ts); }
     renderMsgs(msgs);
+  }, err => {
+    const wrap = document.getElementById('msgs');
+    const status = err && err.httpStatus ? err.httpStatus : '?';
+    const path = err && err.path ? err.path : '?';
+    const body = err && err.body ? err.body : '(no response body)';
+    wrap.innerHTML = `<div class="status-row" style="color:var(--warn);text-align:left;padding:1rem;white-space:pre-wrap;font-family:monospace;font-size:0.7rem">DEBUG — messages fetch failed
+status: ${esc(String(status))}
+path: ${esc(String(path))}
+uid: ${esc(auth.currentUser ? auth.currentUser.uid : 'none')}
+email: ${esc(auth.currentUser ? auth.currentUser.email : 'none')}
+response: ${esc(String(body))}</div>`;
   });
 
   listenRoomControls(roomName);
@@ -2202,4 +2448,78 @@ function renderMsgs(msgs) {
     const role = m.role || null;
     const roleClass = role ? `is-${role}` : '';
     const badge = (!mine && role) ? roleBadgeHTML(role) : '';
-    const myBadge = (mine && currentUserRole) ? roleBadge
+    const myBadge = (mine && currentUserRole) ? roleBadgeHTML(currentUserRole) : '';
+    const isVip = role === 'vip';
+    const unameHTML = isVip
+      ? `<span class="uname" style="color:var(--owner);font-weight:700">${esc(m.user)}</span>`
+      : `<span class="uname">${esc(m.user)}</span>`;
+    const trashBtn = isOwner ? `<button class="btn-delete-msg" data-id="${esc(m.id)}" title="Delete message">🗑️</button>` : '';
+    return `<div class="msg-wrap ${mine?'mine':'theirs'} ${roleClass}">
+      ${trashBtn ? `<div class="msg-actions">${trashBtn}</div>` : ''}
+      <div class="msg ${mine?'mine':'theirs'} ${roleClass}">
+        <div class="meta">${mine ? myBadge : (unameHTML + badge + ' · ')}${time}</div>
+        <div class="bubble">${esc(m.text)}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
+
+  // Attach delete listeners
+  wrap.querySelectorAll('.btn-delete-msg').forEach(btn => {
+    btn.addEventListener('click', () => deleteMessage(btn.dataset.id));
+  });
+
+  if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
+}
+
+function calcOnline(msgs) {
+  const cutoff = Date.now() - 8 * 60000;
+  const s = new Set();
+  msgs.forEach(m => {
+    if (m.type === 'user' && m.ts > cutoff) s.add(m.user);
+    if (m.type === 'system' && m.ts > cutoff) { const x = m.text.match(/^(.+) joined$/); if (x) s.add(x[1]); }
+  });
+  if (currentUser) s.add(currentUser);
+  document.getElementById('hOnline').textContent = Math.max(1, s.size);
+}
+
+document.getElementById('btnCreate').addEventListener('click', createRoom);
+document.getElementById('btnJoin').addEventListener('click', joinRoom);
+document.getElementById('btnLeave').addEventListener('click', leaveRoom);
+document.getElementById('btnSend').addEventListener('click', sendMsg);
+document.getElementById('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
+['cName','cPass','cUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : createRoom(); }); });
+['jName','jPass','jUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : joinRoom(); }); });
+
+// ── INIT ─────────────────────────────────────────────────────
+loadPanicConfig();
+updatePanicIndicator();
+loadSession();
+
+// Wait for Firebase Auth to confirm the real signed-in identity before
+// trusting the locally-cached session or making any authorization-sensitive
+// writes. This avoids a race where UI acts on sessionStorage before
+// request.auth is actually populated (which security rules depend on).
+let authReady = false;
+onAuthStateChanged(auth, async (fbUser) => {
+  if (!currentSession) {
+    if (!authReady) { authReady = true; document.getElementById('authScreen').style.display = 'flex'; }
+    return;
+  }
+  if (!fbUser || fbUser.email.toLowerCase() !== currentSession.email.toLowerCase()) {
+    // Cached session doesn't match (or lacks) a real Firebase Auth session —
+    // don't trust it. Force a clean re-login instead of a half-authed state.
+    clearSession();
+    if (!authReady) { authReady = true; document.getElementById('authScreen').style.display = 'flex'; }
+    return;
+  }
+  // Re-fetch role in case it changed since last session
+  const role = await fetchRole(currentSession.email);
+  currentSession.role = role;
+  sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
+  if (!authReady) { authReady = true; enterLobby(); }
+});
+
+setInterval(loadChips, 10000);
+</script>
+</body>
+</html>
