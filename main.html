@@ -446,9 +446,6 @@
   .toast.success { background: var(--accent); color: #040505; }
 
   /* CHATROOM */
-  /* height:100vh can be clipped on mobile browsers when the address bar
-     shows/hides, hiding the header. 100dvh tracks the real visible area.
-     Falls back to 100vh (identical result) on browsers/desktops without dvh support. */
   #chatroom { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
   .chat-header {
     background: var(--surface);
@@ -511,6 +508,7 @@
   .input-bar {
     background:var(--surface); border-top:1px solid var(--border);
     padding:0.9rem 1.5rem; display:flex; gap:0.65rem; align-items:center; flex-shrink:0;
+    position: relative;
   }
   .ubadge { font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--warn); white-space:nowrap; flex-shrink:0; }
   #msgInput {
@@ -734,7 +732,6 @@
     border-radius: var(--r); white-space: nowrap; z-index: 100;
   }
   .cmd-hint.show { display: block; }
-  .input-bar { position: relative; }
 
   @media(max-width:580px) {
     .lobby-wrap { grid-template-columns:1fr; }
@@ -1028,16 +1025,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 // ── AUTH — REST API SHIM (not the Firebase Auth SDK) ────────────────────
-// The database hang got fixed by switching to plain HTTPS fetch() instead
-// of the SDK's WebSocket layer. Turns out Auth has the same problem for
-// account creation specifically: the SDK can trigger a bot-protection
-// (reCAPTCHA) challenge on sign-up that loads a Google script/iframe —
-// which, like WebSockets, doesn't reliably initialize from a file:// page,
-// so it hangs instead of erroring. Sign-IN of an existing account doesn't
-// trigger that challenge, which is why sign-in worked but sign-up hung.
-// Firebase Auth's REST API (Identity Toolkit) does signup/signin/email
-// verification over plain HTTPS POST — same fix, same reasoning as the
-// database shim below. No SDK, no iframe, no hang.
 const IDT_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
 const TOKEN_URL = 'https://securetoken.googleapis.com/v1/token';
 const API_KEY = firebaseConfig.apiKey;
@@ -1093,6 +1080,11 @@ function makeUser(data) {
             this.idToken = d.id_token;
             this.refreshToken = d.refresh_token;
             this._expiresAt = Date.now() + (Number(d.expires_in) || 3600) * 1000;
+          } else {
+            // FIX 5: If refresh token is invalid/revoked, force sign out to prevent silent failures
+            if (res.status === 400 || res.status === 401) {
+              setTimeout(() => signOut(auth), 100);
+            }
           }
         } catch (e) { /* keep the existing token if refresh fails */ }
       }
@@ -1151,24 +1143,7 @@ async function reload(user) {
   }
 }
 
-// ── DATABASE — REST API SHIM (not the Realtime Database SDK) ───────────
-// The Realtime Database JS SDK talks over WebSockets (with an XHR
-// long-polling fallback). Both depend on a real Origin header, which
-// file:// pages don't send correctly — so the SDK doesn't error, it just
-// hangs forever waiting on a connection that will never complete. That was
-// the actual cause of every "timed out" error above.
-// Firebase also exposes the exact same data over a plain HTTPS REST API
-// (https://project.firebaseio.com/path.json), which is just an ordinary
-// fetch() — no WebSocket, no special Origin handling required. That's
-// exactly what worked when you tested the .json URL directly in a tab.
-// This shim reimplements get/set/push/remove/onValue/off/ref on top of
-// that REST API with the *same call signatures* used everywhere else in
-// this file, so nothing else below has to change. The one real behavior
-// difference: onValue can't get instant server pushes over plain HTTPS, so
-// it polls every 2.5s instead — messages/controls update within ~2.5s
-// instead of instantly. Everything else (auth, rules, permissions) works
-// identically either way, since rules are enforced the same regardless of
-// which transport reads/writes the data.
+// ── DATABASE — REST API SHIM ───────────
 const DB_URL = firebaseConfig.databaseURL.replace(/\/$/, '');
 
 function ref(_db, path) {
@@ -1194,7 +1169,7 @@ function makeSnapshot(val, key = null) {
       if (typeof val !== 'object' || val === null) return false;
       for (const k of Object.keys(val)) {
         const childSnap = makeSnapshot(val[k], k);
-        if (cb(childSnap) === true) return true; // early exit if callback returns true, matching Firebase's real forEach
+        if (cb(childSnap) === true) return true; 
       }
       return false;
     }
@@ -1243,7 +1218,7 @@ async function push(refObj, value) {
   return { key: data.name };
 }
 
-function serverTimestamp() { return Date.now(); } // client clock — fine for this app's needs
+function serverTimestamp() { return Date.now(); } 
 
 const _pollers = {};
 function onValue(refObj, callback, onError) {
@@ -1256,7 +1231,6 @@ function onValue(refObj, callback, onError) {
     catch (e) {
       consecutiveErrors++;
       if (consecutiveErrors === 1 && onError) onError(e);
-      /* keep polling through transient errors either way */
     }
   }
   poll();
@@ -1270,11 +1244,11 @@ function off(refObj) {
   if (_pollers[path]) { _pollers[path].forEach(id => clearInterval(id)); _pollers[path] = []; }
 }
 
-const db = { __shim: true }; // placeholder passed to ref(db, path) calls below — unused otherwise
+const db = { __shim: true }; 
 
 const WORKER_URL = 'https://dawn-lab-9a85.lb6486262.workers.dev/';
 
-// ── OWNER CONFIG (hardcoded — cannot be changed by anyone) ───
+// ── OWNER CONFIG (hardcoded) ───
 const OWNER_EMAIL = 'lb6486262@gmail.com';
 
 // ── CRYPTO HELPERS ───────────────────────────────────────────
@@ -1298,9 +1272,6 @@ function generateSalt() {
   return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
-// If a Firebase call hangs (bad network, blocked request, etc.) this makes
-// it fail loudly with a clear error after 12s instead of leaving the UI
-// stuck forever with no feedback.
 function withTimeout(promise, label) {
   return Promise.race([
     promise,
@@ -1308,8 +1279,14 @@ function withTimeout(promise, label) {
   ]);
 }
 
+// FIX 4: Safe UTF-8 encoding for base64 to prevent crashes on international emails
 function emailToKey(email) {
-  return btoa(email.toLowerCase().trim()).replace(/[.#$/[\]]/g, '_');
+  try {
+    const utf8Bytes = unescape(encodeURIComponent(email.toLowerCase().trim()));
+    return btoa(utf8Bytes).replace(/[.#$/[\]]/g, '_');
+  } catch(e) {
+    return email.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+  }
 }
 
 async function hashRoomPass(p, salt) { return hashPassword(p, salt); }
@@ -1318,7 +1295,7 @@ async function hashRoomPass(p, salt) { return hashPassword(p, salt); }
 function getRole(email) {
   if (!email) return null;
   if (email.toLowerCase().trim() === OWNER_EMAIL) return 'owner';
-  return null; // will be fetched from Firebase
+  return null; 
 }
 
 async function fetchRole(email) {
@@ -1326,13 +1303,8 @@ async function fetchRole(email) {
   const e = email.toLowerCase().trim();
   if (e === OWNER_EMAIL) return 'owner';
   const fbUser = auth.currentUser;
-  if (!fbUser || fbUser.email.toLowerCase() !== e) return null; // no verified identity yet
+  if (!fbUser || fbUser.email.toLowerCase() !== e) return null; 
   try {
-    // roles/{uid} can only be set by the owner (or, once, by the account
-    // whose Auth email is the hardcoded owner email) — enforced entirely by
-    // database rules, no Cloud Function required. This read is safe either
-    // way since it's just displaying whatever role the rules already let
-    // get written.
     const roleSnap = await withTimeout(get(ref(db, 'roles/' + fbUser.uid)), 'reading role');
     return roleSnap.exists() ? roleSnap.val() : null;
   } catch(err) { return null; }
@@ -1346,17 +1318,7 @@ function roleBadgeHTML(role) {
   return '';
 }
 
-// Cache of email→role to avoid repeated Firebase reads in chat rendering
 const roleCache = {};
-
-async function getRoleForUser(username, email) {
-  // In chat we only have username, not email.
-  // We store email→role in roleCache keyed by email.
-  // For message rendering we look up by username via a username→email map built at login.
-  return roleCache[username] || null;
-}
-
-// username → role map (built when users send messages — we store role in messages)
 const userRoleMap = {};
 
 // ── HELPERS ──────────────────────────────────────────────────
@@ -1392,7 +1354,17 @@ function switchTab(tab) {
 document.getElementById('tabSignIn').addEventListener('click', () => switchTab('signin'));
 document.getElementById('tabSignUp').addEventListener('click', () => switchTab('signup'));
 
-// ── PASSWORD STRENGTH ────────────────────────────────────────
+// ── PASSWORD STRENGTH & MATCH ────────────────────────────────
+// FIX 6: Extracted match check to update when main password changes
+function checkPasswordMatch() {
+  const pass = document.getElementById('suPass').value;
+  const conf = document.getElementById('suPassConf').value;
+  const hint = document.getElementById('confHint');
+  if (!conf) { hint.textContent = ''; hint.className = 'field-hint'; return; }
+  if (pass !== conf) { hint.textContent = 'Passwords do not match'; hint.className = 'field-hint err'; }
+  else { hint.textContent = '✓ Passwords match'; hint.className = 'field-hint'; }
+}
+
 document.getElementById('suPass').addEventListener('input', function() {
   const v = this.value;
   const fill = document.getElementById('strengthFill');
@@ -1409,18 +1381,14 @@ document.getElementById('suPass').addEventListener('input', function() {
   const labels = ['','Weak','Fair','Good','Strong','Very strong'];
   hint.textContent = v.length ? labels[score] || 'Very strong' : '';
   hint.className = 'field-hint' + (score <= 1 && v.length ? ' err' : '');
+  
+  checkPasswordMatch();
 });
 
-document.getElementById('suPassConf').addEventListener('input', function() {
-  const pass = document.getElementById('suPass').value;
-  const hint = document.getElementById('confHint');
-  if (!this.value) { hint.textContent = ''; return; }
-  if (this.value !== pass) { hint.textContent = 'Passwords do not match'; hint.className = 'field-hint err'; }
-  else { hint.textContent = '✓ Passwords match'; hint.className = 'field-hint'; }
-});
+document.getElementById('suPassConf').addEventListener('input', checkPasswordMatch);
 
 // ── SESSION ──────────────────────────────────────────────────
-let currentSession = null; // { email, displayName, role }
+let currentSession = null; 
 
 function loadSession() {
   try {
@@ -1510,18 +1478,11 @@ async function submitVerifyCode(entered) {
     const { email, name, pass } = pendingSignup;
     const key = emailToKey(email);
     const nameKey = name.toLowerCase();
-    // Final check in case the name was taken while this signup was pending verification
     const nameSnap = await get(ref(db, 'displayNames/' + nameKey));
     if (nameSnap.exists()) {
       setVerifyStatus('That display name was just taken by someone else. Please go back and pick another.');
       return;
     }
-    // Create the Firebase Auth credential FIRST. Everything written after
-    // this point is gated by rules on `auth.token.email` matching the
-    // record being written — so this has to exist before we touch
-    // accounts/ or displayNames/, or those writes would be rejected (and,
-    // before this fix, would have been accepted from ANY signed-in user for
-    // ANY account — that was the account-takeover hole).
     try {
       await createUserWithEmailAndPassword(auth, email, pass);
     } catch (authErr) {
@@ -1531,24 +1492,10 @@ async function submitVerifyCode(entered) {
         throw authErr;
       }
     }
-    // Real, Firebase-hosted email verification link — this is the actual
-    // security boundary now (checked server-side via auth.token.email_verified
-    // in rules). The 3-digit code above is a nice UX speed bump but was never
-    // provable server-side, so it no longer gates anything on its own.
     await sendEmailVerification(auth.currentUser).catch(() => {});
-    // accounts/ no longer stores a password hash for new signups — Firebase
-    // Auth IS the password store now. Rules only let you write the record
-    // whose 'email' matches your own authenticated email, so no one else
-    // can create or overwrite it.
     await set(ref(db, 'accounts/' + key), { email, displayName: name, created: Date.now() });
     await set(ref(db, 'displayNames/' + nameKey), email);
-    // Self-written, one-time email→uid lookup (rules enforce "only your own
-    // uid, only once") so the owner's client can resolve emails to uids for
-    // role grants without a Cloud Function.
     await set(ref(db, 'emailToUid/' + key), auth.currentUser.uid).catch(() => {});
-    // Owner role bootstrap: rules allow a user to self-write roles/{their-uid}
-    // = 'owner' exactly once, and only if their real Firebase Auth email
-    // matches the hardcoded OWNER_EMAIL. Everyone else gets no role here.
     if (email === OWNER_EMAIL) {
       await set(ref(db, 'roles/' + auth.currentUser.uid), 'owner').catch(() => {});
     }
@@ -1609,32 +1556,19 @@ async function doSignIn() {
   try {
     const key = emailToKey(email);
     let usedLegacyFallback = false;
-    // Firebase Auth is the real, server-verified password check now — try it
-    // first. This also sidesteps the old chicken-and-egg bug where the app
-    // tried to read accounts/ (to check the PBKDF2 hash) before establishing
-    // any auth session, which rules requiring auth != null would reject
-    // outright for a first-time sign-in in a fresh browser.
     try {
       await withTimeout(signInWithEmailAndPassword(auth, email, pass), 'sign in');
     } catch (authErr) {
       if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/wrong-password') {
-        // Could be: wrong password on an existing Firebase Auth account, OR a
-        // genuinely pre-migration account that never got a Firebase Auth
-        // credential. Only accounts/ (readable, but no longer writable by
-        // anyone but their own owner) can tell us which.
         const snap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
         if (!snap.exists()) { setAuthStatus('siStatus', 'No account found with that email.'); return; }
         const data = snap.val();
         if (!data.salt || !data.ph) {
-          // Firebase Auth account exists (has no legacy hash to fall back
-          // on) — this really was just a wrong password.
           setAuthStatus('siStatus', 'Incorrect password. Please try again.');
           return;
         }
         const hashed = await hashPassword(pass, data.salt);
         if (hashed !== data.ph) { setAuthStatus('siStatus', 'Incorrect password. Please try again.'); return; }
-        // Password matches the legacy hash — migrate them to a real Firebase
-        // Auth credential now, one time only.
         await withTimeout(createUserWithEmailAndPassword(auth, email, pass), 'creating auth credential');
         usedLegacyFallback = true;
       } else {
@@ -1643,18 +1577,11 @@ async function doSignIn() {
     }
     const accSnap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
     const accData = accSnap.exists() ? accSnap.val() : { email, displayName: email };
-    // Make sure the email→uid mapping and (for the owner) the owner role
-    // exist. Both writes are self-scoped and one-time — rules reject them
-    // once already set, so this is safe to run on every login.
     await withTimeout(set(ref(db, 'emailToUid/' + key), auth.currentUser.uid), 'linking account').catch(() => {});
     if (email === OWNER_EMAIL) {
       await withTimeout(set(ref(db, 'roles/' + auth.currentUser.uid), 'owner'), 'setting owner role').catch(() => {});
     }
     if (usedLegacyFallback) {
-      // Now that they have a real Firebase Auth credential, drop the PBKDF2
-      // hash from accounts/ — it's redundant and shrinks what a public read
-      // of accounts/ exposes going forward. Allowed because auth.token.email
-      // now matches this record's email (rules check exactly that).
       await withTimeout(set(ref(db, 'accounts/' + key), { email: accData.email, displayName: accData.displayName, created: accData.created || Date.now() }), 'cleaning up account').catch(() => {});
       await sendEmailVerification(auth.currentUser).catch(() => {});
     }
@@ -1670,7 +1597,6 @@ function enterLobby() {
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('lobby').style.display = 'flex';
   document.getElementById('loggedInEmail').textContent = currentSession.email;
-  // Show role badge in lobby pill
   document.getElementById('lobbyRoleBadge').innerHTML = roleBadgeHTML(currentSession.role);
   if (currentSession.displayName) {
     document.getElementById('cUser').value = currentSession.displayName;
@@ -1680,12 +1606,6 @@ function enterLobby() {
   loadChips();
 }
 
-// ── EMAIL VERIFICATION STATE ────────────────────────────────
-// auth.currentUser.emailVerified reflects the LAST fetched ID token. It only
-// updates after reload()+a forced token refresh, which is why we do both
-// on lobby entry and when the person says they've clicked the link — rules
-// check `auth.token.email_verified`, so the token has to actually be fresh
-// for message sends to work post-verification.
 async function updateVerifyBanner() {
   const banner = document.getElementById('verifyBanner');
   if (!auth.currentUser) { banner.style.display = 'none'; return; }
@@ -1699,7 +1619,7 @@ document.getElementById('btnCheckVerified').addEventListener('click', async () =
   try {
     if (auth.currentUser) {
       await reload(auth.currentUser);
-      await auth.currentUser.getIdToken(true); // force-refresh so rules see it
+      await auth.currentUser.getIdToken(true); 
     }
     if (auth.currentUser && auth.currentUser.emailVerified) {
       document.getElementById('verifyBanner').style.display = 'none';
@@ -1723,7 +1643,7 @@ document.getElementById('btnResendVerify').addEventListener('click', async () =>
 
 function doSignOut() {
   clearSession();
-  signOut(auth).catch(() => {}); // best-effort; local session is already cleared regardless
+  signOut(auth).catch(() => {}); 
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('chatroom').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
@@ -1820,22 +1740,16 @@ async function loadRolesList() {
   const listEl = document.getElementById('rolesList');
   listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span>';
   try {
-    // emailToUid/ (self-written once by each account at signup/login) lets
-    // the owner resolve an email to a uid client-side. roles/{uid} is the
-    // actual source of truth rules check — written directly by the owner,
-    // no Cloud Function involved.
     const [mapSnap, rolesSnap] = await Promise.all([
       get(ref(db, 'emailToUid')),
       get(ref(db, 'roles'))
     ]);
-    const emailMap = mapSnap.exists() ? mapSnap.val() : {};   // { emailKey: uid }
-    const roles = rolesSnap.exists() ? rolesSnap.val() : {};  // { uid: role }
+    const emailMap = mapSnap.exists() ? mapSnap.val() : {};   
+    const roles = rolesSnap.exists() ? rolesSnap.val() : {};  
     const items = Object.entries(emailMap)
       .map(([emailKey, uid]) => ({ emailKey, uid, role: roles[uid] || null }))
       .filter(item => item.role);
     if (items.length === 0) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">No roles assigned yet.</span>'; return; }
-    // We only have the email key (base64-ish), not the plain email, from this
-    // map — pull the real address out of accounts/ for display.
     const accountsSnap = await get(ref(db, 'accounts'));
     const accounts = accountsSnap.exists() ? accountsSnap.val() : {};
     listEl.innerHTML = items.map(({ emailKey, uid, role }) => {
@@ -1872,16 +1786,11 @@ async function assignRole() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setRolesStatus('Invalid email format.', 'err');
   try {
     const key = emailToKey(email);
-    // Resolve the target's Firebase Auth uid from the self-written map. If
-    // they haven't signed up yet, there's nothing to resolve — no server-side
-    // fallback on the Spark plan, so ask the owner to try again after signup.
     const uidSnap = await get(ref(db, 'emailToUid/' + key));
     if (!uidSnap.exists()) {
       return setRolesStatus(`${email} hasn't signed up yet. Ask them to create an account, then try again.`, 'err');
     }
     const uid = uidSnap.val();
-    // Only an existing owner's Firebase Auth account can write roles/ for
-    // someone else — enforced by rules (root.child('roles').child(auth.uid) === 'owner').
     await set(ref(db, 'roles/' + uid), role);
     document.getElementById('roleEmail').value = '';
     setRolesStatus(`✓ Assigned ${role} to ${email}`, 'ok');
@@ -1922,9 +1831,9 @@ async function loadChips() {
   const el = document.getElementById('chips');
   if (!snap.exists()) { el.innerHTML = '<span class="no-rooms">No rooms yet — create one!</span>'; return; }
   const rooms = snap.val();
+  // FIX 7: Removed msgCount display to avoid race condition issues
   el.innerHTML = Object.entries(rooms).map(([name, data]) => {
-    const count = data.msgCount || 0;
-    return `<div class="chip" data-room="${esc(name)}"><div class="dot"></div>${esc(name)}<span style="opacity:.4;font-size:.6rem">${count} msg${count!==1?'s':''}</span></div>`;
+    return `<div class="chip" data-room="${esc(name)}"><div class="dot"></div>${esc(name)}</div>`;
   }).join('') || '<span class="no-rooms">No rooms yet — create one!</span>';
   el.querySelectorAll('.chip').forEach(chip => {
     chip.addEventListener('click', () => { document.getElementById('jName').value = chip.dataset.room; document.getElementById('jPass').focus(); });
@@ -1950,7 +1859,7 @@ async function createRoom() {
   if (snap.exists()) { setLoading(false); return toast(`"${name}" already exists — join it`); }
   const salt = generateSalt();
   const h = await hashRoomPass(pass, salt);
-  await set(ref(db, 'rooms/' + name), { h, salt, created: Date.now(), msgCount: 0 });
+  await set(ref(db, 'rooms/' + name), { h, salt, created: Date.now() });
   setLoading(false);
   enterRoom(name, user);
 }
@@ -1968,12 +1877,9 @@ async function joinRoom() {
   const roomData = snap.val();
   let ok = false;
   if (roomData.salt) {
-    // Current (salted) rooms
     const h = await hashRoomPass(pass, roomData.salt);
     ok = roomData.h === h;
   } else {
-    // Legacy rooms created before salting was added — check old unsalted hash,
-    // then transparently upgrade them to a salted hash on successful login.
     const legacyH = await sha256(pass);
     ok = roomData.h === legacyH;
     if (ok) {
@@ -2014,22 +1920,18 @@ function applyMute(seconds) {
   }, 1000);
 }
 
-// Listen for mute/kick/theme commands broadcast via Firebase
 function listenRoomControls(roomName) {
   const ctrlRef = ref(db, 'controls/' + roomName);
   onValue(ctrlRef, snap => {
     if (!snap.exists()) return;
     const data = snap.val();
-    // Mute
     if (data.mute && data.mute.target === currentUser && data.mute.ts > Date.now() - 60000) {
       applyMute(data.mute.seconds);
     }
-    // Kick
     if (data.kick && data.kick.target === currentUser && data.kick.ts > Date.now() - 5000) {
       toast('You have been kicked from this room.', 'error');
       setTimeout(() => leaveRoomSilent(), 1200);
     }
-    // Theme
     if (data.theme && data.theme.color) {
       applyAccentColor(data.theme.color);
     }
@@ -2180,7 +2082,6 @@ async function handleCommand(text) {
         '/help — show this list',
       ];
     }
-    // Post as a local system-style message (not saved to Firebase)
     const wrap = document.getElementById('msgs');
     const helpEl = document.createElement('div');
     helpEl.className = 'msg system';
@@ -2198,7 +2099,6 @@ async function handleCommand(text) {
   toast('Unknown command: ' + cmd + ' — type /help for commands');
 }
 
-// Command hint on input
 document.getElementById('msgInput').addEventListener('input', function() {
   const val = this.value;
   const hint = document.getElementById('cmdHint');
@@ -2210,19 +2110,13 @@ document.getElementById('msgInput').addEventListener('input', function() {
 });
 
 // ── MENTION NOTIFIER (standalone tab) ─────────────────────────
-// Opens an about:blank tab and injects a fully self-contained mini-app
-// into it, with its own Firebase connection. It keeps working even if
-// the main ROOMS tab is closed. It only watches the single room the
-// user was in when they clicked the button, and only alerts on
-// "@username" (whole word, case-insensitive) in new messages, never
-// on the user's own messages.
 function openMentionNotifier() {
   if (!currentRoom || !currentUser) { toast('Join a room first'); return; }
 
   const notifTab = window.open('about:blank', '_blank');
   if (!notifTab) { toast('Popup blocked — please allow popups for this site'); return; }
 
-  // Escape values that get embedded into the injected document as JS string literals
+  // FIX 1: Use textContent in popup to prevent XSS
   const escJs = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3C');
   const roomForTab = escJs(currentRoom);
   const userForTab = escJs(currentUser);
@@ -2243,7 +2137,7 @@ function openMentionNotifier() {
 </head>
 <body>
   <h1><span class="dot"></span>Mention Notifier</h1>
-  <p>Watching <strong style="color:#e8eaed">#${currentRoom.replace(/</g,'&lt;')}</strong> for mentions of <strong style="color:#e8eaed">@${currentUser.replace(/</g,'&lt;')}</strong>.<br>Keep this tab open in the background.</p>
+  <p>Watching <strong style="color:#e8eaed">#<span id="roomName"></span></strong> for mentions of <strong style="color:#e8eaed">@<span id="userName"></span></strong>.<br>Keep this tab open in the background.</p>
   <div class="status" id="status">starting…</div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -2263,6 +2157,11 @@ const db = getDatabase(app);
 
 const ROOM = '${roomForTab}';
 const ME = '${userForTab}';
+
+// Safe rendering using textContent
+document.getElementById('roomName').textContent = ROOM;
+document.getElementById('userName').textContent = ME;
+
 function escRe(s) { return s.replace(/[-\/\\^]/g, '\\\\$&').replace(/[.*+?^()|[\\]{}]/g, '\\\\$&'); }
 const mentionRe = new RegExp('(^|[^a-z0-9_])@' + escRe(ME) + '([^a-z0-9_]|$)', 'i');
 
@@ -2301,7 +2200,7 @@ requestPerm().then(granted => {
       const val = child.val();
       if (seenIds.has(id)) return;
       seenIds.add(id);
-      if (firstLoad) return; // don't alert on message history when tab opens
+      if (firstLoad) return; 
       if (!val || val.type !== 'user' || val.user === ME) return;
       if (!val.text || !mentionRe.test(val.text)) return;
 
@@ -2340,7 +2239,6 @@ function enterRoom(roomName, username) {
   document.getElementById('btnSend').disabled = false;
   document.getElementById('msgInput').focus();
 
-  // Show owner/mod buttons
   document.getElementById('btnManageRoles').style.display = currentUserRole === 'owner' ? '' : 'none';
   document.getElementById('btnOpenTheme').style.display = (currentUserRole === 'owner' || currentUserRole === 'mod') ? '' : 'none';
 
@@ -2397,29 +2295,29 @@ async function pushMsg(m) {
   const msgData = { ...m, ts: Date.now() };
   if (m.type === 'user') {
     if (currentUserRole) msgData.role = currentUserRole;
-    if (auth.currentUser) msgData.uid = auth.currentUser.uid; // lets rules verify claimed role
+    if (auth.currentUser) msgData.uid = auth.currentUser.uid; 
   }
   await push(ref(db, 'messages/' + currentRoom), msgData);
-  const countRef = ref(db, 'rooms/' + currentRoom + '/msgCount');
-  const snap = await get(countRef);
-  await set(countRef, (snap.exists() ? snap.val() : 0) + 1);
+  // FIX 7: Removed msgCount increment to prevent race conditions
 }
 
 async function sendMsg() {
-  if (isMuted) return;
+  // FIX 2: Enforce mute client-side (must also be enforced via Firebase Rules)
+  if (isMuted) {
+    toast('You are currently muted.');
+    return;
+  }
   const input = document.getElementById('msgInput');
   const text = input.value.trim();
   if (!text || !currentRoom) return;
   if (!auth.currentUser || !auth.currentUser.emailVerified) {
-    // Rules will reject this write server-side regardless — this is just a
-    // friendlier message than a raw permission-denied error.
     toast('Verify your email before sending messages (check the lobby banner).');
     return;
   }
   input.value = '';
   document.getElementById('cmdHint').classList.remove('show');
   input.focus();
-  if (text.startsWith('/')) { await handleCommand(text); return; } // commands always handled
+  if (text.startsWith('/')) { await handleCommand(text); return; } 
   await pushMsg({ type:'user', user: currentUser, text });
 }
 
@@ -2463,12 +2361,12 @@ function renderMsgs(msgs) {
     </div>`;
   }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
 
-  // Attach delete listeners
   wrap.querySelectorAll('.btn-delete-msg').forEach(btn => {
     btn.addEventListener('click', () => deleteMessage(btn.dataset.id));
   });
 
-  if (atBottom || isNew) wrap.scrollTop = wrap.scrollHeight;
+  // FIX 3: Only auto-scroll if user is already at the bottom
+  if (atBottom) wrap.scrollTop = wrap.scrollHeight;
 }
 
 function calcOnline(msgs) {
@@ -2495,10 +2393,6 @@ loadPanicConfig();
 updatePanicIndicator();
 loadSession();
 
-// Wait for Firebase Auth to confirm the real signed-in identity before
-// trusting the locally-cached session or making any authorization-sensitive
-// writes. This avoids a race where UI acts on sessionStorage before
-// request.auth is actually populated (which security rules depend on).
 let authReady = false;
 onAuthStateChanged(auth, async (fbUser) => {
   if (!currentSession) {
@@ -2506,13 +2400,10 @@ onAuthStateChanged(auth, async (fbUser) => {
     return;
   }
   if (!fbUser || fbUser.email.toLowerCase() !== currentSession.email.toLowerCase()) {
-    // Cached session doesn't match (or lacks) a real Firebase Auth session —
-    // don't trust it. Force a clean re-login instead of a half-authed state.
     clearSession();
     if (!authReady) { authReady = true; document.getElementById('authScreen').style.display = 'flex'; }
     return;
   }
-  // Re-fetch role in case it changed since last session
   const role = await fetchRole(currentSession.email);
   currentSession.role = role;
   sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
