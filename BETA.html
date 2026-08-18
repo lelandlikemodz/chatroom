@@ -1,1 +1,2543 @@
-not here yet
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROOMS</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #08090a;
+    --surface: #111214;
+    --surface2: #1a1c1f;
+    --border: #252729;
+    --accent: #39ff9c;
+    --warn: #ff6b35;
+    --text: #e8eaed;
+    --muted: #555;
+    --muted2: #888;
+    --r: 3px;
+    --owner: #ffd700;
+    --mod: #4fc3f7;
+    --vip: #ce93d8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* ── AUTH SCREEN ── */
+  #authScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    gap: 2rem;
+  }
+  #authScreen .logo { text-align: center; }
+  #authScreen .logo h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 9vw, 5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  #authScreen .logo p {
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+
+  .auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+  }
+
+  .auth-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .auth-tab {
+    padding: 0.85rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .auth-tab::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+  .auth-tab.active { color: var(--accent); }
+  .auth-tab.active::after { transform: scaleX(1); }
+
+  .auth-form { padding: 1.75rem; display: none; }
+  .auth-form.active { display: block; }
+
+  .auth-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .auth-label::before {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+
+  .field { margin-bottom: 0.85rem; }
+  .field label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--muted2);
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.85rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    outline: none;
+    border-radius: var(--r);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(57,255,156,0.08);
+  }
+  .field input::placeholder { color: var(--muted); }
+  .field input.error { border-color: var(--warn); }
+
+  .field-hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    letter-spacing: 0.04em;
+  }
+  .field-hint.err { color: var(--warn); }
+
+  .btn {
+    width: 100%;
+    padding: 0.72rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: none;
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+    margin-top: 0.4rem;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #040505; }
+  .btn-primary:not(:disabled):hover { background: #5fffb4; box-shadow: 0 0 20px rgba(57,255,156,0.22); }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+  .auth-divider { height: 1px; background: var(--border); margin: 1.25rem 0; }
+
+  .auth-status {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: var(--r);
+    margin-bottom: 0.85rem;
+    display: none;
+  }
+  .auth-status.err { display: block; background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.3); color: var(--warn); }
+  .auth-status.ok { display: block; background: rgba(57,255,156,0.08); border: 1px solid rgba(57,255,156,0.25); color: var(--accent); }
+
+  .verify-panel {
+    display: none;
+    padding: 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .verify-panel.active { display: block; }
+  .verify-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  .verify-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    margin-bottom: 1.2rem;
+    line-height: 1.6;
+  }
+  .verify-sub span { color: var(--text); }
+  .code-inputs {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  .code-digit {
+    width: 58px; height: 64px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    color: var(--accent);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    caret-color: transparent;
+  }
+  .code-digit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(57,255,156,0.1); }
+  .code-digit.filled { border-color: rgba(57,255,156,0.5); }
+  .code-digit.wrong { border-color: var(--warn); animation: shake 0.3s ease; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-4px)} 40%,80%{transform:translateX(4px)} }
+  .verify-resend {
+    background: none; border: none; color: var(--muted2);
+    font-family: 'Space Mono', monospace; font-size: 0.6rem;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    transition: color 0.15s; display: block; margin: 0.5rem auto 0; text-align: center;
+  }
+  .verify-resend:hover { color: var(--accent); }
+  .verify-resend:disabled { opacity: 0.4; cursor: not-allowed; text-decoration: none; }
+
+  .strength-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+  .strength-fill { height: 100%; width: 0%; border-radius: 2px; transition: width 0.3s, background 0.3s; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  /* ── ROLE BADGES ── */
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.52rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.1rem 0.35rem;
+    border-radius: 2px;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+    flex-shrink: 0;
+  }
+  .badge-owner {
+    background: rgba(255,215,0,0.12);
+    border: 1px solid rgba(255,215,0,0.4);
+    color: var(--owner);
+  }
+  .badge-mod {
+    background: rgba(79,195,247,0.1);
+    border: 1px solid rgba(79,195,247,0.35);
+    color: var(--mod);
+  }
+  .badge-vip {
+    background: rgba(206,147,216,0.1);
+    border: 1px solid rgba(206,147,216,0.35);
+    color: var(--vip);
+  }
+
+  /* LOBBY */
+  #lobby {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+    gap: 2.5rem;
+  }
+  .logo { text-align: center; }
+  .logo h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 9vw, 5.5rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo p {
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 0.5rem;
+  }
+  .user-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted2);
+    margin-top: 0.6rem;
+  }
+  .user-pill .dot { width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2s infinite; }
+  .user-pill span { color: var(--accent); }
+  .btn-pill-signout {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-family: 'Space Mono', monospace; font-size: 0.55rem;
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 0 0.3rem;
+    transition: color 0.15s;
+  }
+  .btn-pill-signout:hover { color: var(--warn); }
+
+  .lobby-wrap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    max-width: 700px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+  .panel { background: var(--surface); padding: 1.75rem; }
+  .panel-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.25rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .panel-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: blink 1.4s infinite;
+  }
+
+  .btn-create { background: var(--accent); color: #040505; }
+  .btn-create:not(:disabled):hover { background: #5fffb4; box-shadow: 0 0 20px rgba(57,255,156,0.25); }
+  .btn-join { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-join:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+
+  .rooms-row {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    padding: 1.25rem 1.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .rooms-row h3 {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 0.75rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 0.35rem 0.8rem;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted2);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip .dot { width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2s infinite; }
+  .no-rooms { font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); }
+
+  .lobby-footer {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .footer-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.85rem;
+    cursor: pointer;
+    border-radius: var(--r);
+    transition: all 0.15s;
+  }
+  .footer-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .footer-btn.warn:hover { border-color: var(--warn); color: var(--warn); }
+  .panic-indicator { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); letter-spacing:0.06em; }
+  .panic-indicator .pk { color: var(--accent); }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 2rem; left: 50%;
+    transform: translateX(-50%) translateY(5rem);
+    padding: 0.55rem 1.1rem;
+    font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    border-radius: var(--r);
+    transition: transform 0.3s cubic-bezier(.16,1,.3,1);
+    z-index: 10000; pointer-events: none;
+    background: var(--warn); color: #fff;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--accent); color: #040505; }
+
+  /* CHATROOM */
+  #chatroom { display: none; flex-direction: column; height: 100vh; height: 100dvh; }
+  .chat-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; gap: 1rem;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .chat-header::-webkit-scrollbar { height: 3px; }
+  .chat-header::-webkit-scrollbar-thumb { background: var(--border); }
+  .chat-header > * { flex-shrink: 0; }
+  .hroom { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:800; color:var(--accent); letter-spacing:-0.02em; }
+  .hmeta { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--muted); border-left:1px solid var(--border); padding-left:1rem; }
+  .honline { margin-left:auto; display:flex; align-items:center; gap:0.4rem; font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--accent); }
+  .honline .dot { width:5px;height:5px;border-radius:50%;background:var(--accent);animation:blink 2s infinite; }
+  .btn-leave {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:0.3rem 0.7rem; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s;
+  }
+  .btn-leave:hover { border-color:var(--warn); color:var(--warn); }
+  .btn-hdr {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.05em; padding:0.3rem 0.7rem; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s;
+  }
+  .btn-hdr:hover { border-color:var(--accent); color:var(--accent); }
+  .btn-hdr.owner-btn { border-color: rgba(255,215,0,0.3); color: var(--owner); }
+  .btn-hdr.owner-btn:hover { border-color: var(--owner); box-shadow: 0 0 10px rgba(255,215,0,0.15); }
+
+  .msgs {
+    flex:1; overflow-y:auto; padding:1.25rem 1.5rem;
+    display:flex; flex-direction:column; gap:0.2rem;
+  }
+  .msgs::-webkit-scrollbar { width:3px; }
+  .msgs::-webkit-scrollbar-thumb { background:var(--border); }
+
+  .msg { display:flex; flex-direction:column; max-width:62%; animation:slideUp 0.18s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .msg.mine { align-self:flex-end; align-items:flex-end; }
+  .msg.theirs { align-self:flex-start; align-items:flex-start; }
+  .msg .meta { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted); margin-bottom:0.2rem; padding:0 0.15rem; display:flex; align-items:center; gap:0.3rem; flex-wrap:wrap; }
+  .msg .bubble { padding:0.6rem 0.9rem; font-size:0.88rem; line-height:1.55; word-break:break-word; border-radius:var(--r); }
+  .msg.mine .bubble { background:var(--accent); color:#040505; border-bottom-right-radius:0; font-weight:500; }
+  .msg.theirs .bubble { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-bottom-left-radius:0; }
+  .msg.system { align-self:center; }
+  .msg.system .bubble { background:none; border:none; color:var(--muted); font-family:'Space Mono',monospace; font-size:0.6rem; padding:0.2rem 0.5rem; text-align:center; }
+  .status-row { align-self:center; font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--muted); padding:2rem; }
+
+  /* owner message highlight */
+  .msg.is-owner .bubble { border-left: 2px solid var(--owner); }
+  .msg.is-mod .bubble { border-left: 2px solid var(--mod); }
+  .msg.is-vip .bubble { border-left: 2px solid var(--vip); }
+
+  .input-bar {
+    background:var(--surface); border-top:1px solid var(--border);
+    padding:0.9rem 1.5rem; display:flex; gap:0.65rem; align-items:center; flex-shrink:0;
+    position: relative;
+  }
+  .ubadge { font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--warn); white-space:nowrap; flex-shrink:0; }
+  #msgInput {
+    flex:1; background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    padding:0.6rem 0.9rem; font-family:'DM Sans',sans-serif; font-size:0.88rem;
+    outline:none; border-radius:var(--r); transition:border-color 0.15s;
+  }
+  #msgInput:focus { border-color:var(--accent); }
+  #msgInput::placeholder { color:var(--muted); }
+  #msgInput:disabled { opacity:0.4; }
+  .btn-send {
+    background:var(--accent); color:#040505; border:none; padding:0.6rem 1.1rem;
+    font-family:'Space Mono',monospace; font-size:0.7rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:0.08em; cursor:pointer; border-radius:var(--r);
+    transition:all 0.15s; flex-shrink:0;
+  }
+  .btn-send:hover:not(:disabled) { background:#5fffb4; }
+  .btn-send:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+
+  /* MODALS */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 20000;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    width: 100%;
+    max-width: 480px;
+    margin: 1rem;
+    transform: translateY(12px);
+    transition: transform 0.2s cubic-bezier(.16,1,.3,1);
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .modal-head h2.owner-title { color: var(--owner); }
+  .modal-close {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-family: 'Space Mono', monospace; font-size: 0.7rem;
+    padding: 0.2rem 0.5rem; border-radius: var(--r); transition: color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { padding: 1.5rem; }
+
+  /* CREDITS */
+  .credits-name { font-family:'Syne',sans-serif; font-size:2.8rem; font-weight:800; letter-spacing:-0.04em; background:linear-gradient(135deg,var(--text) 30%,var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; line-height:1; margin-bottom:0.4rem; }
+  .credits-role { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--accent); letter-spacing:0.2em; text-transform:uppercase; margin-bottom:1.5rem; }
+  .credits-divider { height:1px; background:var(--border); margin:1.2rem 0; }
+  .credits-line { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--muted2); letter-spacing:0.06em; margin-bottom:0.4rem; }
+  .credits-line span { color:var(--text); }
+
+  /* SETTINGS */
+  .settings-section { margin-bottom: 1.5rem; }
+  .settings-label { font-family:'Space Mono',monospace; font-size:0.58rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--accent); margin-bottom:0.9rem; }
+  .setting-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:0.75rem; }
+  .setting-desc { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--muted2); line-height:1.5; }
+  .setting-desc strong { color:var(--text); display:block; font-size:0.68rem; margin-bottom:0.1rem; }
+  .hotkey-recorder { display:flex; align-items:center; gap:0.5rem; flex-shrink:0; }
+  .key-display { background:var(--surface2); border:1px solid var(--border); border-radius:var(--r); padding:0.35rem 0.7rem; font-family:'Space Mono',monospace; font-size:0.65rem; color:var(--accent); min-width:90px; text-align:center; transition:border-color 0.15s; cursor:pointer; white-space:nowrap; }
+  .key-display.recording { border-color:var(--accent); box-shadow:0 0 0 2px rgba(57,255,156,0.12); color:var(--warn); animation:pulse 0.9s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .key-clear { background:none; border:1px solid var(--border); color:var(--muted); font-family:'Space Mono',monospace; font-size:0.55rem; text-transform:uppercase; padding:0.3rem 0.5rem; cursor:pointer; border-radius:var(--r); transition:all 0.15s; }
+  .key-clear:hover { border-color:var(--warn); color:var(--warn); }
+  .panic-url-row { margin-top:0.75rem; }
+  .panic-url-row label { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted2); text-transform:uppercase; letter-spacing:0.08em; display:block; margin-bottom:0.3rem; }
+  .panic-url-input { width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:0.5rem 0.75rem; font-family:'Space Mono',monospace; font-size:0.72rem; outline:none; border-radius:var(--r); transition:border-color 0.15s; }
+  .panic-url-input:focus { border-color:var(--accent); }
+  .panic-url-input::placeholder { color:var(--muted); }
+  .panic-mode-row { display:flex; gap:0.5rem; margin-top:0.75rem; }
+  .mode-btn { flex:1; padding:0.45rem; font-family:'Space Mono',monospace; font-size:0.6rem; text-transform:uppercase; letter-spacing:0.06em; background:var(--surface2); border:1px solid var(--border); color:var(--muted2); cursor:pointer; border-radius:var(--r); transition:all 0.15s; }
+  .mode-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(57,255,156,0.06); }
+  .save-btn { width:100%; margin-top:1.25rem; padding:0.65rem; background:var(--accent); color:#040505; border:none; font-family:'Space Mono',monospace; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; cursor:pointer; border-radius:var(--r); transition:all 0.15s; }
+  .save-btn:hover { background:#5fffb4; }
+
+  /* ROLES MODAL */
+  .roles-info {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted2);
+    margin-bottom: 1.2rem;
+    line-height: 1.7;
+    padding: 0.6rem 0.8rem;
+    background: rgba(255,215,0,0.04);
+    border: 1px solid rgba(255,215,0,0.15);
+    border-radius: var(--r);
+  }
+  .role-legend { display: flex; gap: 0.6rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+  .role-legend-item { display: flex; align-items: center; gap: 0.4rem; font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--muted2); }
+  .roles-section-label { font-family:'Space Mono',monospace; font-size:0.58rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:0.6rem; margin-top:1rem; }
+  .role-field-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+  .role-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 0.5rem 0.75rem; font-family: 'Space Mono', monospace;
+    font-size: 0.72rem; outline: none; border-radius: var(--r); transition: border-color 0.15s;
+  }
+  .role-input:focus { border-color: var(--accent); }
+  .role-input::placeholder { color: var(--muted); }
+  .role-select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 0.6rem; font-family: 'Space Mono', monospace; font-size: 0.68rem;
+    outline: none; border-radius: var(--r); cursor: pointer; transition: border-color 0.15s;
+  }
+  .role-select:focus { border-color: var(--accent); }
+  .role-assign-btn {
+    padding: 0.5rem 0.85rem; background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3);
+    color: var(--owner); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s; white-space: nowrap;
+  }
+  .role-assign-btn:hover { background: rgba(255,215,0,0.18); border-color: var(--owner); }
+  .role-remove-btn {
+    padding: 0.5rem 0.85rem; background: rgba(255,107,53,0.08); border: 1px solid rgba(255,107,53,0.25);
+    color: var(--warn); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s; white-space: nowrap;
+  }
+  .role-remove-btn:hover { background: rgba(255,107,53,0.15); border-color: var(--warn); }
+  .roles-list { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 180px; overflow-y: auto; }
+  .roles-list::-webkit-scrollbar { width: 3px; }
+  .roles-list::-webkit-scrollbar-thumb { background: var(--border); }
+  .role-list-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.45rem 0.7rem; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--r); gap: 0.5rem;
+  }
+  .role-list-email { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--muted2); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .role-list-actions { display:flex; align-items:center; gap:0.4rem; flex-shrink:0; }
+  .role-remove-x {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    font-family:'Space Mono',monospace; font-size:0.6rem; padding:0.2rem 0.5rem;
+    cursor:pointer; border-radius:var(--r); transition:all 0.15s;
+  }
+  .role-remove-x:hover { border-color:var(--warn); color:var(--warn); }
+  .roles-status { font-family:'Space Mono',monospace; font-size:0.6rem; margin-top:0.6rem; padding:0.4rem 0.7rem; border-radius:var(--r); display:none; }
+  .roles-status.ok { display:block; background:rgba(57,255,156,0.08); border:1px solid rgba(57,255,156,0.25); color:var(--accent); }
+  .roles-status.err { display:block; background:rgba(255,107,53,0.1); border:1px solid rgba(255,107,53,0.3); color:var(--warn); }
+
+  /* VIP gold name */
+  .msg.is-vip .meta .uname { color: var(--owner); font-weight: 700; }
+  .msg.mine.is-vip .meta { color: var(--owner); }
+
+  /* Trash button */
+  .msg-wrap { position: relative; display: flex; flex-direction: column; max-width: 62%; }
+  .msg-wrap.mine { align-self: flex-end; align-items: flex-end; }
+  .msg-wrap.theirs { align-self: flex-start; align-items: flex-start; }
+  .msg-actions {
+    display: flex; align-items: center; gap: 0.3rem;
+    opacity: 0; transition: opacity 0.15s; margin-bottom: 0.15rem;
+  }
+  .msg-wrap:hover .msg-actions { opacity: 1; }
+  .btn-delete-msg {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.8rem; padding: 0.1rem 0.25rem;
+    border-radius: 2px; transition: transform 0.1s;
+    line-height: 1;
+  }
+  .btn-delete-msg:hover { transform: scale(1.2); }
+
+  /* Mute overlay */
+  #muteOverlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 50000;
+    background: rgba(0,0,0,0.92);
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 1rem;
+  }
+  #muteOverlay.active { display: flex; }
+  .mute-icon { font-size: 3rem; }
+  .mute-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; color: var(--warn); }
+  .mute-sub { font-family: 'Space Mono', monospace; font-size: 0.65rem; color: var(--muted2); letter-spacing: 0.1em; }
+  .mute-timer { font-family: 'Space Mono', monospace; font-size: 2rem; color: var(--warn); font-weight: 700; }
+
+  /* Theme picker */
+  .theme-picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+  .theme-swatch {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .theme-swatch:hover { transform: scale(1.15); }
+  .theme-swatch.active { border-color: var(--text); }
+  .theme-hex-row { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; }
+  .theme-hex-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 0.45rem 0.7rem; font-family: 'Space Mono', monospace; font-size: 0.72rem;
+    outline: none; border-radius: var(--r); transition: border-color 0.15s;
+  }
+  .theme-hex-input:focus { border-color: var(--accent); }
+  .theme-apply-btn {
+    padding: 0.45rem 0.85rem; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.62rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
+    border-radius: var(--r); transition: all 0.15s;
+  }
+  .theme-apply-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Command hint */
+  .cmd-hint {
+    font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted);
+    padding: 0.2rem 0.5rem; display: none;
+    position: absolute; bottom: calc(100% + 4px); left: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--r); white-space: nowrap; z-index: 100;
+  }
+  .cmd-hint.show { display: block; }
+
+  @media(max-width:580px) {
+    .lobby-wrap { grid-template-columns:1fr; }
+    .msg { max-width:85%; }
+    .msg-wrap { max-width: 85%; }
+    .setting-row { flex-direction:column; align-items:flex-start; }
+  }
+
+  /* ══ DISCORD-STYLE CHATROOM ══ */
+  .rc-shell{display:flex;flex:1;min-height:0;height:100%;}
+  .rc-sidebar{width:232px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;}
+  .rc-server-head{height:52px;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+  .rc-server-name{font-family:'Syne',sans-serif;font-weight:800;font-size:1.05rem;letter-spacing:-.02em;background:linear-gradient(135deg,var(--text) 40%,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .rc-server-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 2s infinite;}
+  .rc-side-scroll{flex:1;overflow-y:auto;padding:.75rem .5rem;}
+  .rc-side-scroll::-webkit-scrollbar{width:3px;} .rc-side-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+  .rc-section-label{font-family:'Space Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);padding:0 .5rem .4rem;}
+  .rc-room{display:flex;align-items:center;gap:.45rem;padding:.42rem .5rem;margin:.1rem 0;border-radius:4px;color:var(--muted2);font-family:'Space Mono',monospace;font-size:.78rem;cursor:pointer;transition:all .12s;}
+  .rc-room:hover{background:var(--surface2);color:var(--text);}
+  .rc-room.active{background:var(--surface2);color:var(--accent);}
+  .rc-hash{opacity:.6;}
+  .rc-no-rooms{font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);padding:.4rem .5rem;}
+  .rc-userbar{display:flex;align-items:center;gap:.55rem;padding:.6rem .75rem;background:var(--surface2);border-top:1px solid var(--border);}
+  .rc-user-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;color:#040505;flex-shrink:0;}
+  .rc-user-info{flex:1;min-width:0;}
+  .rc-user-name{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rc-user-sub{font-family:'Space Mono',monospace;font-size:.55rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;}
+  .rc-user-btn{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:.85rem;padding:.25rem .35rem;border-radius:4px;transition:all .12s;}
+  .rc-user-btn:hover{color:var(--accent);background:var(--surface);}
+
+  .rc-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .htopic{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);border-left:1px solid var(--border);padding-left:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .rc-members{width:232px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;padding:.9rem .6rem;}
+  .rc-members::-webkit-scrollbar{width:3px;} .rc-members::-webkit-scrollbar-thumb{background:var(--border);}
+  .rc-mgroup{font-family:'Space Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);margin:.9rem .4rem .35rem;}
+  .rc-member{display:flex;align-items:center;gap:.5rem;padding:.28rem .4rem;border-radius:4px;}
+  .rc-member:hover{background:var(--surface2);}
+  .rc-member.offline{opacity:.45;}
+  .rc-mavatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:.7rem;color:#040505;flex-shrink:0;}
+  .rc-mname{font-family:'Space Mono',monospace;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  /* Discord-style message rows (replaces bubbles) */
+  .msgs{padding:1rem 0;gap:0;}
+  .dmsg{display:flex;gap:.8rem;padding:.35rem 1rem;position:relative;animation:slideUp .18s ease;}
+  .dmsg:hover{background:rgba(0,0,0,.16);}
+  .davatar{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:1.05rem;color:#040505;margin-top:2px;}
+  .dcontent{min-width:0;flex:1;}
+  .dhead{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;}
+  .dname{font-weight:500;font-size:.9rem;}
+  .dtime{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);}
+  .dtext{font-size:.9rem;line-height:1.5;color:var(--text);word-break:break-word;margin-top:1px;}
+  .dmsg.system{justify-content:center;padding:.15rem 1rem;}
+  .dmsg.system:hover{background:none;}
+  .dmsg.system .dtext{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);text-align:center;}
+  .dmsg .btn-delete-msg{position:absolute;right:.9rem;top:.45rem;opacity:0;}
+  .dmsg:hover .btn-delete-msg{opacity:1;}
+
+  /* rounded input like Discord */
+  .input-bar{padding:.75rem 1rem;}
+  .rc-input-wrap{flex:1;display:flex;align-items:center;gap:.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.15rem .15rem .15rem .9rem;transition:border-color .15s;}
+  .rc-input-wrap:focus-within{border-color:var(--accent);}
+  #msgInput{flex:1;background:transparent;border:none;box-shadow:none;padding:.55rem 0;}
+  #msgInput:focus{border:none;}
+  .btn-send{border-radius:6px;margin:.15rem;padding:.6rem .8rem;}
+
+  @media(max-width:980px){.rc-members{display:none;}}
+  @media(max-width:640px){.rc-sidebar{display:none;}}
+</style>
+</head>
+<body>
+
+<!-- ── AUTH SCREEN ── -->
+<div id="authScreen">
+  <div class="logo">
+    <h1>ROOMS</h1>
+    <p>real-time · password-protected · multi-device</p>
+  </div>
+
+  <div class="auth-box">
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabSignIn">Sign In</button>
+      <button class="auth-tab" id="tabSignUp">Create Account</button>
+    </div>
+
+    <!-- SIGN IN -->
+    <div class="auth-form active" id="formSignIn">
+      <div class="auth-label">Sign In</div>
+      <div class="auth-status" id="siStatus"></div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="siEmail" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="siPass" placeholder="your password" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary" id="btnSignIn">Sign In →</button>
+    </div>
+
+    <!-- SIGN UP -->
+    <div class="auth-form" id="formSignUp">
+      <div class="auth-label">Create Account</div>
+      <div class="auth-status" id="suStatus"></div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="suEmail" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Display Name</label>
+        <input type="text" id="suName" placeholder="how others see you" maxlength="24" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="suPass" placeholder="min 8 characters" autocomplete="new-password"/>
+        <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+        <div class="field-hint" id="strengthHint"></div>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input type="password" id="suPassConf" placeholder="repeat password" autocomplete="new-password"/>
+        <div class="field-hint" id="confHint"></div>
+      </div>
+      <button class="btn btn-primary" id="btnSignUp">Create Account →</button>
+    </div>
+
+    <!-- VERIFICATION PANEL -->
+    <div class="verify-panel" id="verifyPanel">
+      <div class="verify-title">// Verify Email</div>
+      <div class="verify-sub">Enter the 3-digit code sent to <span id="verifyEmailDisplay">—</span></div>
+      <div class="auth-status" id="verifyStatus"></div>
+      <div class="code-inputs">
+        <input class="code-digit" id="vd0" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="code-digit" id="vd1" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="code-digit" id="vd2" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+      </div>
+      <button class="verify-resend" id="btnResend">Resend code</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="logo">
+    <h1>ROOMS</h1>
+    <div class="user-pill">
+      <div class="dot"></div>
+      signed in as <span id="loggedInEmail">—</span>
+      <span id="lobbyRoleBadge"></span>
+      <button class="btn-pill-signout" id="btnSignOut">sign out</button>
+    </div>
+    <div class="user-pill" id="verifyBanner" style="display:none;border-color:var(--warn,#e8a33d);color:var(--warn,#e8a33d);">
+      <div class="dot" style="background:var(--warn,#e8a33d);"></div>
+      <span>Verify your email to send messages — check your inbox for the link.</span>
+      <button class="btn-pill-signout" id="btnCheckVerified">I clicked it — refresh</button>
+      <button class="btn-pill-signout" id="btnResendVerify">Resend</button>
+    </div>
+  </div>
+  <div class="lobby-wrap">
+    <div class="panel">
+      <div class="panel-label">Create Room</div>
+      <div class="field"><label>Room Name</label>
+        <input id="cName" placeholder="e.g. night-crew" maxlength="30"/></div>
+      <div class="field"><label>Password</label>
+        <input id="cPass" type="password" placeholder="set a password"/></div>
+      <div class="field"><label>Your Name</label>
+        <input id="cUser" placeholder="display name" maxlength="20"/></div>
+      <button class="btn btn-create" id="btnCreate">Create &amp; Enter →</button>
+    </div>
+    <div class="panel">
+      <div class="panel-label">Join Room</div>
+      <div class="field"><label>Room Name</label>
+        <input id="jName" placeholder="exact room name" maxlength="30"/></div>
+      <div class="field"><label>Password</label>
+        <input id="jPass" type="password" placeholder="room password"/></div>
+      <div class="field"><label>Your Name</label>
+        <input id="jUser" placeholder="display name" maxlength="20"/></div>
+      <button class="btn btn-join" id="btnJoin">Join Room →</button>
+    </div>
+    <div class="rooms-row">
+      <h3>// Active Rooms</h3>
+      <div class="chips" id="chips"><span class="no-rooms">Loading…</span></div>
+    </div>
+  </div>
+  <div class="lobby-footer">
+    <button class="footer-btn" id="btnOpenCredits">Credits</button>
+    <button class="footer-btn warn" id="btnReportBugLobby">Report Bug</button>
+    <button class="footer-btn" id="btnOpenSettings">⚙ Panic Key</button>
+    <span class="panic-indicator" id="lobbyPanicIndicator"></span>
+  </div>
+</div>
+
+<!-- CHATROOM -->
+<div id="chatroom">
+  <div class="rc-shell">
+    <aside class="rc-sidebar">
+      <div class="rc-server-head">
+        <span class="rc-server-name">ROOMS</span>
+        <span class="rc-server-dot"></span>
+      </div>
+      <div class="rc-side-scroll">
+        <div class="rc-section-label">Rooms · one chat each</div>
+        <div id="sbRoomList"></div>
+      </div>
+      <div class="rc-userbar">
+        <div class="rc-user-avatar" id="ubAvatar">?</div>
+        <div class="rc-user-info">
+          <div class="rc-user-name" id="uBadge">you</div>
+          <div class="rc-user-sub" id="ubRole">member</div>
+        </div>
+        <button class="rc-user-btn" id="btnOpenSettingsChat" title="Panic Key / Settings">⚙</button>
+        <button class="rc-user-btn" id="btnLeave" title="Leave room">🚪</button>
+      </div>
+    </aside>
+
+    <main class="rc-main">
+      <div class="chat-header">
+        <div class="hroom" id="hRoom">—</div>
+        <div class="htopic" id="hMeta">password-protected · one chat per room</div>
+        <div class="honline"><div class="dot"></div><span id="hOnline">1</span></div>
+        <button class="btn-hdr" id="btnMentionNotifier" title="Mention Notifier">🔔</button>
+        <button class="btn-hdr" id="btnOpenTheme" style="display:none">🎨</button>
+        <button class="btn-hdr owner-btn" id="btnManageRoles" style="display:none">👑</button>
+        <button class="btn-hdr" id="btnReportBugChat">Bug</button>
+      </div>
+      <div class="msgs" id="msgs"><div class="status-row">connecting to firebase…</div></div>
+      <div class="input-bar">
+        <div class="cmd-hint" id="cmdHint"></div>
+        <div class="rc-input-wrap">
+          <input type="text" id="msgInput" placeholder="say something…" maxlength="500" autocomplete="off" disabled/>
+          <button class="btn-send" id="btnSend" disabled>➤</button>
+        </div>
+      </div>
+    </main>
+
+    <aside class="rc-members" id="membersPanel"></aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- MUTE OVERLAY -->
+<div id="muteOverlay">
+  <div class="mute-icon">🔇</div>
+  <div class="mute-title">You've been muted</div>
+  <div class="mute-sub">A moderator silenced you temporarily</div>
+  <div class="mute-timer" id="muteTimer">0s</div>
+</div>
+
+<!-- THEME MODAL -->
+<div class="modal-overlay" id="themeOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Chat Theme</h2>
+      <button class="modal-close" id="themeClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-label">Pick accent color — applies for everyone in room</div>
+      <div class="theme-picker-row" id="themeSwatches"></div>
+      <div class="theme-hex-row">
+        <input class="theme-hex-input" id="themeHex" placeholder="#39ff9c" maxlength="7"/>
+        <button class="theme-apply-btn" id="btnApplyTheme">Apply</button>
+      </div>
+      <div class="roles-status" id="themeStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- CREDITS MODAL -->
+<div class="modal-overlay" id="creditsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Credits</h2>
+      <button class="modal-close" id="creditsClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="credits-name">Leland</div>
+      <div class="credits-role">Creator &amp; Developer</div>
+      <div class="credits-divider"></div>
+      <div class="credits-line">App &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span>ROOMS</span></div>
+      <div class="credits-line">Stack &nbsp;&nbsp;&nbsp; <span>HTML · Firebase Realtime DB</span></div>
+      <div class="credits-line">Fonts &nbsp;&nbsp;&nbsp; <span>Syne · Space Mono · DM Sans</span></div>
+      <div class="credits-divider"></div>
+      <div class="credits-line" style="color:var(--muted);font-size:0.58rem;">Built with passion. All rights reserved.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>// Panic Key Settings</h2>
+      <button class="modal-close" id="settingsClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <div class="settings-label">⚡ Hotkey</div>
+        <div class="setting-row">
+          <div class="setting-desc">
+            <strong>Panic Key Combo</strong>
+            Click the key display, then press your desired keys simultaneously.
+          </div>
+          <div class="hotkey-recorder">
+            <div class="key-display" id="keyDisplay" title="Click to record hotkey">0 + 9</div>
+            <button class="key-clear" id="keyClear">clear</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">🚀 Action</div>
+        <div class="setting-desc" style="margin-bottom:0.6rem;"><strong>What happens when triggered?</strong></div>
+        <div class="panic-mode-row">
+          <button class="mode-btn active" id="modeOpen" data-mode="open">Open URL</button>
+          <button class="mode-btn" id="modeClose" data-mode="close">Close Tab</button>
+        </div>
+        <div class="panic-url-row" id="urlRow">
+          <label>Redirect URL</label>
+          <input class="panic-url-input" id="panicUrl" placeholder="https://google.com" />
+        </div>
+      </div>
+      <button class="save-btn" id="saveSettings">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROLES MODAL (owner only) -->
+<div class="modal-overlay" id="rolesOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 class="owner-title">👑 Manage Roles</h2>
+      <button class="modal-close" id="rolesClose">✕ close</button>
+    </div>
+    <div class="modal-body">
+      <div class="roles-info">
+        You are the <strong style="color:var(--owner)">OWNER</strong> of ROOMS. Assign mod or VIP roles to users by their email address. Roles are stored permanently in Firebase.
+      </div>
+      <div class="role-legend">
+        <div class="role-legend-item"><span class="role-badge badge-owner">👑 Owner</span> — you</div>
+        <div class="role-legend-item"><span class="role-badge badge-mod">🛡 Mod</span> — moderator</div>
+        <div class="role-legend-item"><span class="role-badge badge-vip">⭐ VIP</span> — special user</div>
+      </div>
+
+      <div class="roles-section-label">Assign Role</div>
+      <div class="role-field-row">
+        <input class="role-input" id="roleEmail" placeholder="user@email.com" type="email"/>
+        <select class="role-select" id="roleSelect">
+          <option value="mod">🛡 Mod</option>
+          <option value="vip">⭐ VIP</option>
+        </select>
+        <button class="role-assign-btn" id="btnAssignRole">Assign</button>
+      </div>
+      <div class="role-field-row">
+        <input class="role-input" id="roleRemoveEmail" placeholder="remove role from email…" type="email"/>
+        <button class="role-remove-btn" id="btnRemoveRole">Remove</button>
+      </div>
+      <div class="roles-status" id="rolesStatus"></div>
+
+      <div class="roles-section-label">Current Roles</div>
+      <div class="roles-list" id="rolesList"><span style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
+  authDomain: "project-50a73.firebaseapp.com",
+  databaseURL: "https://project-50a73-default-rtdb.firebaseio.com",
+  projectId: "project-50a73",
+  storageBucket: "project-50a73.firebasestorage.app",
+  messagingSenderId: "395823874797",
+  appId: "1:395823874797:web:a408782869b31984a342e4"
+};
+
+const app = initializeApp(firebaseConfig);
+// ── AUTH — REST API SHIM (not the Firebase Auth SDK) ────────────────────
+const IDT_URL = 'https://identitytoolkit.googleapis.com/v1/accounts';
+const TOKEN_URL = 'https://securetoken.googleapis.com/v1/token';
+const API_KEY = firebaseConfig.apiKey;
+
+function mapAuthError(body) {
+  const msg = (body && body.error && body.error.message) || 'unknown-error';
+  const codeMap = {
+    'EMAIL_EXISTS': 'auth/email-already-in-use',
+    'EMAIL_NOT_FOUND': 'auth/user-not-found',
+    'INVALID_PASSWORD': 'auth/wrong-password',
+    'INVALID_LOGIN_CREDENTIALS': 'auth/invalid-credential',
+    'USER_DISABLED': 'auth/user-disabled'
+  };
+  const code = codeMap[msg] || ('auth/' + msg.toLowerCase().replace(/[: ]/g, '-'));
+  const e = new Error(code);
+  e.code = code;
+  return e;
+}
+
+async function identityToolkitPost(endpoint, body) {
+  const res = await fetch(IDT_URL + ':' + endpoint + '?key=' + API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  if (!res.ok) throw mapAuthError(data);
+  return data;
+}
+
+function makeUser(data) {
+  const mintedAt = Date.now();
+  const expiresInMs = (Number(data.expiresIn) || 3600) * 1000;
+  return {
+    uid: data.localId,
+    email: data.email,
+    emailVerified: data.emailVerified === true || data.emailVerified === 'true',
+    idToken: data.idToken,
+    refreshToken: data.refreshToken,
+    _expiresAt: mintedAt + expiresInMs,
+    async getIdToken(forceRefresh) {
+      let nearExpiry = false;
+      try { nearExpiry = Date.now() > (this._expiresAt - 5 * 60000); } catch(e) {}
+      if ((forceRefresh || nearExpiry) && this.refreshToken) {
+        try {
+          const res = await fetch(TOKEN_URL + '?key=' + API_KEY, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(this.refreshToken)
+          });
+          const d = await res.json();
+          if (res.ok) {
+            this.idToken = d.id_token;
+            this.refreshToken = d.refresh_token;
+            this._expiresAt = Date.now() + (Number(d.expires_in) || 3600) * 1000;
+          } else {
+            // FIX 5: If refresh token is invalid/revoked, force sign out to prevent silent failures
+            if (res.status === 400 || res.status === 401) {
+              setTimeout(() => signOut(auth), 100);
+            }
+          }
+        } catch (e) { /* keep the existing token if refresh fails */ }
+      }
+      return this.idToken;
+    }
+  };
+}
+
+const _authListeners = [];
+const auth = {
+  currentUser: null,
+  _notify() { _authListeners.forEach(cb => cb(this.currentUser)); }
+};
+
+function onAuthStateChanged(_auth, callback) {
+  _authListeners.push(callback);
+  callback(auth.currentUser);
+  return () => { const i = _authListeners.indexOf(callback); if (i > -1) _authListeners.splice(i, 1); };
+}
+
+async function createUserWithEmailAndPassword(_auth, email, pass) {
+  const data = await identityToolkitPost('signUp', { email, password: pass, returnSecureToken: true });
+  auth.currentUser = makeUser(data);
+  auth._notify();
+  return { user: auth.currentUser };
+}
+
+async function signInWithEmailAndPassword(_auth, email, pass) {
+  const data = await identityToolkitPost('signInWithPassword', { email, password: pass, returnSecureToken: true });
+  auth.currentUser = makeUser(data);
+  auth._notify();
+  return { user: auth.currentUser };
+}
+
+async function signOut(_auth) {
+  auth.currentUser = null;
+  auth._notify();
+}
+
+async function sendEmailVerification(user) {
+  if (!user) return;
+  await identityToolkitPost('sendOobCode', { requestType: 'VERIFY_EMAIL', idToken: user.idToken });
+}
+
+async function reload(user) {
+  if (!user) return;
+  const res = await fetch(IDT_URL + ':lookup?key=' + API_KEY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken: user.idToken })
+  });
+  const data = await res.json();
+  if (res.ok && data.users && data.users[0]) {
+    user.emailVerified = data.users[0].emailVerified === true;
+    user.email = data.users[0].email;
+  }
+}
+
+// ── DATABASE — REST API SHIM ───────────
+const DB_URL = firebaseConfig.databaseURL.replace(/\/$/, '');
+
+function ref(_db, path) {
+  return { path: String(path).replace(/^\/+|\/+$/g, '') };
+}
+
+async function authQueryString() {
+  if (auth.currentUser) {
+    try {
+      const token = await auth.currentUser.getIdToken();
+      return '?auth=' + encodeURIComponent(token);
+    } catch (e) { /* fall through unauthenticated */ }
+  }
+  return '';
+}
+
+function makeSnapshot(val, key = null) {
+  return {
+    key,
+    exists: () => val !== null && val !== undefined,
+    val: () => val,
+    forEach(cb) {
+      if (typeof val !== 'object' || val === null) return false;
+      for (const k of Object.keys(val)) {
+        const childSnap = makeSnapshot(val[k], k);
+        if (cb(childSnap) === true) return true; 
+      }
+      return false;
+    }
+  };
+}
+
+async function get(refObj) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q);
+  if (!res.ok) {
+    let body = '';
+    try { body = await res.text(); } catch(e2) {}
+    const e = new Error('permission_denied');
+    e.code = 'PERMISSION_DENIED';
+    e.httpStatus = res.status;
+    e.body = body;
+    e.path = refObj.path;
+    throw e;
+  }
+  const val = await res.json();
+  return makeSnapshot(val);
+}
+
+async function set(refObj, value) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value === undefined ? null : value)
+  });
+  if (!res.ok) { const e = new Error('permission_denied'); e.code = 'PERMISSION_DENIED'; throw e; }
+  return res.json();
+}
+
+async function remove(refObj) { return set(refObj, null); }
+
+async function push(refObj, value) {
+  const q = await authQueryString();
+  const res = await fetch(DB_URL + '/' + refObj.path + '.json' + q, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value)
+  });
+  if (!res.ok) { const e = new Error('permission_denied'); e.code = 'PERMISSION_DENIED'; throw e; }
+  const data = await res.json();
+  return { key: data.name };
+}
+
+function serverTimestamp() { return Date.now(); } 
+
+const _pollers = {};
+function onValue(refObj, callback, onError) {
+  const path = refObj.path;
+  let stopped = false;
+  let consecutiveErrors = 0;
+  async function poll() {
+    if (stopped) return;
+    try { const snap = await get(refObj); consecutiveErrors = 0; callback(snap); }
+    catch (e) {
+      consecutiveErrors++;
+      if (consecutiveErrors === 1 && onError) onError(e);
+    }
+  }
+  poll();
+  const intervalId = setInterval(poll, 2500);
+  (_pollers[path] = _pollers[path] || []).push(intervalId);
+  return () => { stopped = true; clearInterval(intervalId); };
+}
+
+function off(refObj) {
+  const path = refObj.path;
+  if (_pollers[path]) { _pollers[path].forEach(id => clearInterval(id)); _pollers[path] = []; }
+}
+
+const db = { __shim: true }; 
+
+const WORKER_URL = 'https://dawn-lab-9a85.lb6486262.workers.dev/';
+
+// ── OWNER CONFIG (hardcoded) ───
+const OWNER_EMAIL = 'lb6486262@gmail.com';
+
+// ── CRYPTO HELPERS ───────────────────────────────────────────
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPassword(password, salt) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations: 100000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateSalt() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function withTimeout(promise, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting on: ' + label)), 12000))
+  ]);
+}
+
+// FIX 4: Safe UTF-8 encoding for base64 to prevent crashes on international emails
+function emailToKey(email) {
+  try {
+    const utf8Bytes = unescape(encodeURIComponent(email.toLowerCase().trim()));
+    return btoa(utf8Bytes).replace(/[.#$/[\]]/g, '_');
+  } catch(e) {
+    return email.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+  }
+}
+
+async function hashRoomPass(p, salt) { return hashPassword(p, salt); }
+
+// ── ROLE HELPERS ─────────────────────────────────────────────
+function getRole(email) {
+  if (!email) return null;
+  if (email.toLowerCase().trim() === OWNER_EMAIL) return 'owner';
+  return null; 
+}
+
+async function fetchRole(email) {
+  if (!email) return null;
+  const e = email.toLowerCase().trim();
+  if (e === OWNER_EMAIL) return 'owner';
+  const fbUser = auth.currentUser;
+  if (!fbUser || fbUser.email.toLowerCase() !== e) return null; 
+  try {
+    const roleSnap = await withTimeout(get(ref(db, 'roles/' + fbUser.uid)), 'reading role');
+    return roleSnap.exists() ? roleSnap.val() : null;
+  } catch(err) { return null; }
+}
+
+function roleBadgeHTML(role) {
+  if (!role) return '';
+  if (role === 'owner') return '<span class="role-badge badge-owner">👑 Owner</span>';
+  if (role === 'mod')   return '<span class="role-badge badge-mod">🛡 Mod</span>';
+  if (role === 'vip')   return '<span class="role-badge badge-vip">⭐ VIP</span>';
+  return '';
+}
+
+const roleCache = {};
+const userRoleMap = {};
+
+// ── HELPERS ──────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function toast(msg, type='error') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'success' ? ' success' : '');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function setAuthStatus(formId, msg, type='err') {
+  const el = document.getElementById(formId);
+  el.textContent = msg;
+  el.className = 'auth-status ' + (type === 'ok' ? 'ok' : 'err');
+}
+function clearAuthStatus(formId) {
+  const el = document.getElementById(formId);
+  el.textContent = ''; el.className = 'auth-status';
+}
+
+// ── TAB SWITCHER ─────────────────────────────────────────────
+function switchTab(tab) {
+  document.getElementById('tabSignIn').classList.toggle('active', tab === 'signin');
+  document.getElementById('tabSignUp').classList.toggle('active', tab === 'signup');
+  document.getElementById('formSignIn').classList.toggle('active', tab === 'signin');
+  document.getElementById('formSignUp').classList.toggle('active', tab === 'signup');
+  clearAuthStatus('siStatus'); clearAuthStatus('suStatus');
+}
+document.getElementById('tabSignIn').addEventListener('click', () => switchTab('signin'));
+document.getElementById('tabSignUp').addEventListener('click', () => switchTab('signup'));
+
+// ── PASSWORD STRENGTH & MATCH ────────────────────────────────
+// FIX 6: Extracted match check to update when main password changes
+function checkPasswordMatch() {
+  const pass = document.getElementById('suPass').value;
+  const conf = document.getElementById('suPassConf').value;
+  const hint = document.getElementById('confHint');
+  if (!conf) { hint.textContent = ''; hint.className = 'field-hint'; return; }
+  if (pass !== conf) { hint.textContent = 'Passwords do not match'; hint.className = 'field-hint err'; }
+  else { hint.textContent = '✓ Passwords match'; hint.className = 'field-hint'; }
+}
+
+document.getElementById('suPass').addEventListener('input', function() {
+  const v = this.value;
+  const fill = document.getElementById('strengthFill');
+  const hint = document.getElementById('strengthHint');
+  let score = 0;
+  if (v.length >= 8) score++;
+  if (v.length >= 12) score++;
+  if (/[A-Z]/.test(v)) score++;
+  if (/[0-9]/.test(v)) score++;
+  if (/[^A-Za-z0-9]/.test(v)) score++;
+  const pct = Math.min(100, score * 20);
+  fill.style.width = pct + '%';
+  fill.style.background = score <= 1 ? '#ff6b35' : score <= 3 ? '#f0c040' : '#39ff9c';
+  const labels = ['','Weak','Fair','Good','Strong','Very strong'];
+  hint.textContent = v.length ? labels[score] || 'Very strong' : '';
+  hint.className = 'field-hint' + (score <= 1 && v.length ? ' err' : '');
+  
+  checkPasswordMatch();
+});
+
+document.getElementById('suPassConf').addEventListener('input', checkPasswordMatch);
+
+// ── SESSION ──────────────────────────────────────────────────
+let currentSession = null; 
+
+function loadSession() {
+  try {
+    const s = sessionStorage.getItem('roomsSession');
+    if (s) currentSession = JSON.parse(s);
+  } catch(e) {}
+}
+
+function saveSession(email, displayName, role) {
+  currentSession = { email, displayName, role: role || null };
+  sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
+}
+
+function clearSession() {
+  currentSession = null;
+  sessionStorage.removeItem('roomsSession');
+}
+
+// ── AUTH ACTIONS ─────────────────────────────────────────────
+let pendingSignup = null;
+
+function generateVerifyCode() { return String(Math.floor(100 + Math.random() * 900)); }
+
+async function sendVerificationEmail(email, code) {
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: email, code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Send failed');
+    return true;
+  } catch(e) { console.error('Email send error:', e); return false; }
+}
+
+async function showVerifyPanel(email, code) {
+  document.getElementById('verifyEmailDisplay').textContent = email;
+  document.getElementById('verifyPanel').classList.add('active');
+  ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.value = ''; el.classList.remove('filled','wrong'); });
+  clearVerifyStatus();
+  setVerifyStatus('Sending code to ' + email + '…', 'ok');
+  const sent = await sendVerificationEmail(email, code);
+  if (sent) clearVerifyStatus();
+  else setVerifyStatus('Could not send email.');
+  document.getElementById('vd0').focus();
+}
+
+function hideVerifyPanel() { document.getElementById('verifyPanel').classList.remove('active'); pendingSignup = null; }
+function clearVerifyStatus() { const el = document.getElementById('verifyStatus'); el.textContent = ''; el.className = 'auth-status'; }
+function setVerifyStatus(msg, type='err') { const el = document.getElementById('verifyStatus'); el.textContent = msg; el.className = 'auth-status ' + (type === 'ok' ? 'ok' : 'err'); }
+
+['vd0','vd1','vd2'].forEach((id, i) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    el.value = el.value.replace(/[^0-9]/g,'').slice(-1);
+    el.classList.toggle('filled', el.value !== '');
+    el.classList.remove('wrong');
+    if (el.value && i < 2) document.getElementById('vd' + (i+1)).focus();
+    const all = ['vd0','vd1','vd2'].map(x => document.getElementById(x).value).join('');
+    if (all.length === 3) submitVerifyCode(all);
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !el.value && i > 0) document.getElementById('vd' + (i-1)).focus();
+    if (e.key === 'ArrowLeft' && i > 0) document.getElementById('vd' + (i-1)).focus();
+    if (e.key === 'ArrowRight' && i < 2) document.getElementById('vd' + (i+1)).focus();
+  });
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g,'').slice(0,3);
+    if (pasted.length === 3) {
+      ['vd0','vd1','vd2'].forEach((xid, xi) => { const x = document.getElementById(xid); x.value = pasted[xi]; x.classList.add('filled'); });
+      submitVerifyCode(pasted);
+    }
+  });
+});
+
+async function submitVerifyCode(entered) {
+  if (!pendingSignup) return;
+  if (entered !== pendingSignup.code) {
+    ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.classList.add('wrong'); setTimeout(() => el.classList.remove('wrong'), 400); });
+    setVerifyStatus('Incorrect code. Try again.');
+    setTimeout(() => { ['vd0','vd1','vd2'].forEach(id => { document.getElementById(id).value = ''; document.getElementById(id).classList.remove('filled'); }); document.getElementById('vd0').focus(); }, 400);
+    return;
+  }
+  setVerifyStatus('Verified! Creating your account…', 'ok');
+  try {
+    const { email, name, pass } = pendingSignup;
+    const key = emailToKey(email);
+    const nameKey = name.toLowerCase();
+    const nameSnap = await get(ref(db, 'displayNames/' + nameKey));
+    if (nameSnap.exists()) {
+      setVerifyStatus('That display name was just taken by someone else. Please go back and pick another.');
+      return;
+    }
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (authErr) {
+      if (authErr.code === 'auth/email-already-in-use') {
+        await signInWithEmailAndPassword(auth, email, pass);
+      } else {
+        throw authErr;
+      }
+    }
+    await sendEmailVerification(auth.currentUser).catch(() => {});
+    await set(ref(db, 'accounts/' + key), { email, displayName: name, created: Date.now() });
+    await set(ref(db, 'displayNames/' + nameKey), email);
+    await set(ref(db, 'emailToUid/' + key), auth.currentUser.uid).catch(() => {});
+    if (email === OWNER_EMAIL) {
+      await set(ref(db, 'roles/' + auth.currentUser.uid), 'owner').catch(() => {});
+    }
+    const role = await fetchRole(email);
+    saveSession(email, name, role);
+    setTimeout(() => { hideVerifyPanel(); enterLobby(); }, 700);
+  } catch(e) { setVerifyStatus('Error: ' + (e.code || e.message || e)); console.error(e); }
+}
+
+document.getElementById('btnResend').addEventListener('click', async () => {
+  if (!pendingSignup) return;
+  const newCode = generateVerifyCode();
+  pendingSignup.code = newCode;
+  ['vd0','vd1','vd2'].forEach(id => { const el = document.getElementById(id); el.value=''; el.classList.remove('filled','wrong'); });
+  clearVerifyStatus();
+  setVerifyStatus('Resending…', 'ok');
+  const sent = await sendVerificationEmail(pendingSignup.email, newCode);
+  if (sent) { clearVerifyStatus(); toast('New code sent!', 'success'); }
+  else setVerifyStatus('Failed to resend.');
+  document.getElementById('vd0').focus();
+});
+
+async function doSignUp() {
+  const email = document.getElementById('suEmail').value.trim().toLowerCase();
+  const name = document.getElementById('suName').value.trim();
+  const pass = document.getElementById('suPass').value;
+  const passConf = document.getElementById('suPassConf').value;
+  clearAuthStatus('suStatus');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setAuthStatus('suStatus', 'Enter a valid email address.');
+  if (!name) return setAuthStatus('suStatus', 'Display name is required.');
+  if (pass.length < 8) return setAuthStatus('suStatus', 'Password must be at least 8 characters.');
+  if (pass !== passConf) return setAuthStatus('suStatus', 'Passwords do not match.');
+  const btn = document.getElementById('btnSignUp');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const key = emailToKey(email);
+    const existing = await get(ref(db, 'accounts/' + key));
+    if (existing.exists()) { setAuthStatus('suStatus', 'An account with this email already exists. Please sign in.'); return; }
+    const nameKey = name.toLowerCase();
+    const nameSnap = await get(ref(db, 'displayNames/' + nameKey));
+    if (nameSnap.exists()) { setAuthStatus('suStatus', 'That display name is already taken. Please choose another.'); return; }
+    const code = generateVerifyCode();
+    pendingSignup = { email, name, pass, code };
+    setAuthStatus('suStatus', 'Sending verification code…', 'ok');
+    await showVerifyPanel(email, code);
+  } catch(e) { setAuthStatus('suStatus', 'Error: ' + (e.code || e.message || e)); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = 'Create Account →'; }
+}
+
+async function doSignIn() {
+  const email = document.getElementById('siEmail').value.trim().toLowerCase();
+  const pass = document.getElementById('siPass').value;
+  clearAuthStatus('siStatus');
+  if (!email) return setAuthStatus('siStatus', 'Email is required.');
+  if (!pass) return setAuthStatus('siStatus', 'Password is required.');
+  const btn = document.getElementById('btnSignIn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const key = emailToKey(email);
+    let usedLegacyFallback = false;
+    try {
+      await withTimeout(signInWithEmailAndPassword(auth, email, pass), 'sign in');
+    } catch (authErr) {
+      if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/wrong-password') {
+        const snap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
+        if (!snap.exists()) { setAuthStatus('siStatus', 'No account found with that email.'); return; }
+        const data = snap.val();
+        if (!data.salt || !data.ph) {
+          setAuthStatus('siStatus', 'Incorrect password. Please try again.');
+          return;
+        }
+        const hashed = await hashPassword(pass, data.salt);
+        if (hashed !== data.ph) { setAuthStatus('siStatus', 'Incorrect password. Please try again.'); return; }
+        await withTimeout(createUserWithEmailAndPassword(auth, email, pass), 'creating auth credential');
+        usedLegacyFallback = true;
+      } else {
+        throw authErr;
+      }
+    }
+    const accSnap = await withTimeout(get(ref(db, 'accounts/' + key)), 'reading account');
+    const accData = accSnap.exists() ? accSnap.val() : { email, displayName: email };
+    await withTimeout(set(ref(db, 'emailToUid/' + key), auth.currentUser.uid), 'linking account').catch(() => {});
+    if (email === OWNER_EMAIL) {
+      await withTimeout(set(ref(db, 'roles/' + auth.currentUser.uid), 'owner'), 'setting owner role').catch(() => {});
+    }
+    if (usedLegacyFallback) {
+      await withTimeout(set(ref(db, 'accounts/' + key), { email: accData.email, displayName: accData.displayName, created: accData.created || Date.now() }), 'cleaning up account').catch(() => {});
+      await sendEmailVerification(auth.currentUser).catch(() => {});
+    }
+    const role = await fetchRole(email);
+    saveSession(accData.email, accData.displayName, role);
+    setAuthStatus('siStatus', 'Welcome back!', 'ok');
+    setTimeout(() => enterLobby(), 700);
+  } catch(e) { setAuthStatus('siStatus', 'Error: ' + (e.code || e.message || e)); console.error(e); }
+  finally { btn.disabled = false; btn.textContent = 'Sign In →'; }
+}
+
+function enterLobby() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  document.getElementById('loggedInEmail').textContent = currentSession.email;
+  document.getElementById('lobbyRoleBadge').innerHTML = roleBadgeHTML(currentSession.role);
+  if (currentSession.displayName) {
+    document.getElementById('cUser').value = currentSession.displayName;
+    document.getElementById('jUser').value = currentSession.displayName;
+  }
+  updateVerifyBanner();
+  loadChips();
+}
+
+async function updateVerifyBanner() {
+  const banner = document.getElementById('verifyBanner');
+  if (!auth.currentUser) { banner.style.display = 'none'; return; }
+  try { await withTimeout(reload(auth.currentUser), 'checking verification'); } catch(e) {}
+  banner.style.display = auth.currentUser.emailVerified ? 'none' : 'flex';
+}
+
+document.getElementById('btnCheckVerified').addEventListener('click', async () => {
+  const btn = document.getElementById('btnCheckVerified');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    if (auth.currentUser) {
+      await reload(auth.currentUser);
+      await auth.currentUser.getIdToken(true); 
+    }
+    if (auth.currentUser && auth.currentUser.emailVerified) {
+      document.getElementById('verifyBanner').style.display = 'none';
+      toast('Email verified — you can send messages now.', 'success');
+    } else {
+      toast('Not verified yet — check your inbox (and spam folder).');
+    }
+  } catch(e) { toast('Something went wrong checking verification.'); }
+  finally { btn.disabled = false; btn.textContent = "I clicked it — refresh"; }
+});
+
+document.getElementById('btnResendVerify').addEventListener('click', async () => {
+  const btn = document.getElementById('btnResendVerify');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+    toast('Verification email sent.', 'success');
+  } catch(e) { toast('Failed to resend — try again shortly.'); }
+  finally { btn.disabled = false; btn.textContent = 'Resend'; }
+});
+
+function doSignOut() {
+  clearSession();
+  signOut(auth).catch(() => {}); 
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('chatroom').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  ['siEmail','siPass','suEmail','suName','suPass','suPassConf'].forEach(id => document.getElementById(id).value = '');
+  clearAuthStatus('siStatus'); clearAuthStatus('suStatus');
+  document.getElementById('strengthFill').style.width = '0';
+  document.getElementById('strengthHint').textContent = '';
+  switchTab('signin');
+}
+
+document.getElementById('btnSignIn').addEventListener('click', doSignIn);
+document.getElementById('btnSignUp').addEventListener('click', doSignUp);
+document.getElementById('btnSignOut').addEventListener('click', doSignOut);
+document.getElementById('siPass').addEventListener('keydown', e => { if (e.key === 'Enter') doSignIn(); });
+document.getElementById('siEmail').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('siPass').focus(); });
+document.getElementById('suPassConf').addEventListener('keydown', e => { if (e.key === 'Enter') doSignUp(); });
+
+// ── PANIC KEY ────────────────────────────────────────────────
+let panicConfig = { keys: new Set(['0','9']), mode: 'open', url: 'https://google.com' };
+function loadPanicConfig() {
+  try {
+    const saved = localStorage.getItem('panicConfig');
+    if (saved) { const p = JSON.parse(saved); panicConfig.keys = new Set(p.keys || ['0','9']); panicConfig.mode = p.mode || 'open'; panicConfig.url = p.url || 'https://google.com'; }
+  } catch(e) {}
+}
+function savePanicConfig() { localStorage.setItem('panicConfig', JSON.stringify({ keys: [...panicConfig.keys], mode: panicConfig.mode, url: panicConfig.url })); }
+function panicKeyLabel() { return [...panicConfig.keys].join(' + ') || 'none'; }
+function updatePanicIndicator() {
+  const el = document.getElementById('lobbyPanicIndicator');
+  if (!el) return;
+  el.innerHTML = panicConfig.keys.size === 0 ? '' : `panic: <span class="pk">${panicKeyLabel()}</span>`;
+}
+const heldKeys = new Set();
+let panicFired = false;
+document.addEventListener('keydown', e => {
+  heldKeys.add(e.key.toLowerCase());
+  if (panicConfig.keys.size === 0 || isRecording) return;
+  const required = new Set([...panicConfig.keys].map(k => k.toLowerCase()));
+  if ([...required].every(k => heldKeys.has(k)) && !panicFired) { panicFired = true; triggerPanic(); }
+});
+document.addEventListener('keyup', e => { heldKeys.delete(e.key.toLowerCase()); panicFired = false; });
+function triggerPanic() {
+  if (panicConfig.mode === 'close') { window.close(); document.body.innerHTML = ''; window.location.href = 'about:blank'; }
+  else { window.location.href = panicConfig.url || 'https://google.com'; }
+}
+let isRecording = false, recordedKeys = new Set();
+const keyDisplay = document.getElementById('keyDisplay');
+function startRecording() { isRecording = true; recordedKeys = new Set(); keyDisplay.classList.add('recording'); keyDisplay.textContent = 'press keys…'; }
+function stopRecording() { isRecording = false; keyDisplay.classList.remove('recording'); keyDisplay.textContent = recordedKeys.size > 0 ? [...recordedKeys].join(' + ') : (panicKeyLabel() || 'click to set'); }
+keyDisplay.addEventListener('click', () => { isRecording ? stopRecording() : startRecording(); });
+document.addEventListener('keydown', e => { if (!isRecording) return; e.preventDefault(); recordedKeys.add(e.key); keyDisplay.textContent = [...recordedKeys].join(' + '); });
+document.addEventListener('keyup', e => { if (isRecording && recordedKeys.size > 0) stopRecording(); });
+document.getElementById('keyClear').addEventListener('click', () => { recordedKeys = new Set(); keyDisplay.textContent = 'none'; isRecording = false; keyDisplay.classList.remove('recording'); });
+let currentPanicMode = panicConfig.mode;
+function openSettings() { keyDisplay.textContent = panicKeyLabel() || 'click to set'; document.getElementById('panicUrl').value = panicConfig.url; currentPanicMode = panicConfig.mode; updateModeButtons(); document.getElementById('settingsOverlay').classList.add('open'); }
+function closeSettings() { if (isRecording) stopRecording(); document.getElementById('settingsOverlay').classList.remove('open'); }
+function updateModeButtons() { document.getElementById('modeOpen').classList.toggle('active', currentPanicMode === 'open'); document.getElementById('modeClose').classList.toggle('active', currentPanicMode === 'close'); document.getElementById('urlRow').style.display = currentPanicMode === 'open' ? '' : 'none'; }
+document.getElementById('modeOpen').addEventListener('click', () => { currentPanicMode = 'open'; updateModeButtons(); });
+document.getElementById('modeClose').addEventListener('click', () => { currentPanicMode = 'close'; updateModeButtons(); });
+document.getElementById('saveSettings').addEventListener('click', () => {
+  if (recordedKeys.size > 0) panicConfig.keys = new Set(recordedKeys);
+  else if (keyDisplay.textContent === 'none') panicConfig.keys = new Set();
+  panicConfig.mode = currentPanicMode;
+  panicConfig.url = document.getElementById('panicUrl').value.trim() || 'https://google.com';
+  savePanicConfig(); updatePanicIndicator(); closeSettings(); toast('Panic key saved!', 'success');
+});
+document.getElementById('btnOpenSettings').addEventListener('click', openSettings);
+document.getElementById('btnOpenSettingsChat').addEventListener('click', openSettings);
+document.getElementById('settingsClose').addEventListener('click', closeSettings);
+document.getElementById('settingsOverlay').addEventListener('click', e => { if (e.target === document.getElementById('settingsOverlay')) closeSettings(); });
+
+// ── CREDITS ──────────────────────────────────────────────────
+document.getElementById('btnOpenCredits').addEventListener('click', () => document.getElementById('creditsOverlay').classList.add('open'));
+document.getElementById('creditsClose').addEventListener('click', () => document.getElementById('creditsOverlay').classList.remove('open'));
+document.getElementById('creditsOverlay').addEventListener('click', e => { if (e.target === document.getElementById('creditsOverlay')) document.getElementById('creditsOverlay').classList.remove('open'); });
+
+function reportBug() {
+  const subject = encodeURIComponent('Bug Report — ROOMS');
+  const body = encodeURIComponent('Describe the bug:\n\n\nSteps to reproduce:\n\n\nExpected behavior:\n\n');
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  toast('Opening bug report…', 'success');
+}
+document.getElementById('btnReportBugLobby').addEventListener('click', reportBug);
+document.getElementById('btnReportBugChat').addEventListener('click', reportBug);
+
+// ── ROLES MODAL ──────────────────────────────────────────────
+function setRolesStatus(msg, type='ok') {
+  const el = document.getElementById('rolesStatus');
+  el.textContent = msg; el.className = 'roles-status ' + type;
+  setTimeout(() => { el.className = 'roles-status'; el.textContent = ''; }, 3000);
+}
+
+async function loadRolesList() {
+  const listEl = document.getElementById('rolesList');
+  listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">Loading…</span>';
+  try {
+    const [mapSnap, rolesSnap] = await Promise.all([
+      get(ref(db, 'emailToUid')),
+      get(ref(db, 'roles'))
+    ]);
+    const emailMap = mapSnap.exists() ? mapSnap.val() : {};   
+    const roles = rolesSnap.exists() ? rolesSnap.val() : {};  
+    const items = Object.entries(emailMap)
+      .map(([emailKey, uid]) => ({ emailKey, uid, role: roles[uid] || null }))
+      .filter(item => item.role);
+    if (items.length === 0) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--muted)">No roles assigned yet.</span>'; return; }
+    const accountsSnap = await get(ref(db, 'accounts'));
+    const accounts = accountsSnap.exists() ? accountsSnap.val() : {};
+    listEl.innerHTML = items.map(({ emailKey, uid, role }) => {
+      const email = (accounts[emailKey] && accounts[emailKey].email) || emailKey;
+      return `
+      <div class="role-list-item">
+        <span class="role-list-email" title="${esc(email)}">${esc(email)}</span>
+        <div class="role-list-actions">
+          ${roleBadgeHTML(role)}
+          ${role !== 'owner' ? `<button class="role-remove-x" data-uid="${esc(uid)}" data-email="${esc(email)}">✕</button>` : ''}
+        </div>
+      </div>
+    `; }).join('');
+    listEl.querySelectorAll('.role-remove-x').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid = btn.dataset.uid;
+        const em = btn.dataset.email;
+        if (em === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
+        try {
+          await remove(ref(db, 'roles/' + uid));
+          setRolesStatus(`Removed role from ${em}`, 'ok');
+        } catch(e) { setRolesStatus('Failed to remove role (are you the owner?).', 'err'); }
+        loadRolesList();
+      });
+    });
+  } catch(e) { listEl.innerHTML = '<span style="font-family:\'Space Mono\',monospace;font-size:0.6rem;color:var(--warn)">Error loading roles.</span>'; }
+}
+
+async function assignRole() {
+  const email = document.getElementById('roleEmail').value.trim().toLowerCase();
+  const role = document.getElementById('roleSelect').value;
+  if (!email) return setRolesStatus('Enter an email address.', 'err');
+  if (email === OWNER_EMAIL) return setRolesStatus('Cannot reassign owner role.', 'err');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setRolesStatus('Invalid email format.', 'err');
+  try {
+    const key = emailToKey(email);
+    const uidSnap = await get(ref(db, 'emailToUid/' + key));
+    if (!uidSnap.exists()) {
+      return setRolesStatus(`${email} hasn't signed up yet. Ask them to create an account, then try again.`, 'err');
+    }
+    const uid = uidSnap.val();
+    await set(ref(db, 'roles/' + uid), role);
+    document.getElementById('roleEmail').value = '';
+    setRolesStatus(`✓ Assigned ${role} to ${email}`, 'ok');
+    loadRolesList();
+  } catch(e) { setRolesStatus('Failed to assign role (are you the owner?).', 'err'); }
+}
+
+async function removeRole() {
+  const email = document.getElementById('roleRemoveEmail').value.trim().toLowerCase();
+  if (!email) return setRolesStatus('Enter an email to remove role from.', 'err');
+  if (email === OWNER_EMAIL) return setRolesStatus('Cannot remove owner role.', 'err');
+  try {
+    const key = emailToKey(email);
+    const uidSnap = await get(ref(db, 'emailToUid/' + key));
+    if (!uidSnap.exists()) return setRolesStatus(`${email} hasn't signed up yet.`, 'err');
+    await remove(ref(db, 'roles/' + uidSnap.val()));
+    document.getElementById('roleRemoveEmail').value = '';
+    setRolesStatus(`✓ Removed role from ${email}`, 'ok');
+    loadRolesList();
+  } catch(e) { setRolesStatus('Failed to remove role.', 'err'); }
+}
+
+function openRolesModal() {
+  document.getElementById('rolesOverlay').classList.add('open');
+  loadRolesList();
+}
+function closeRolesModal() { document.getElementById('rolesOverlay').classList.remove('open'); }
+
+document.getElementById('btnManageRoles').addEventListener('click', openRolesModal);
+document.getElementById('rolesClose').addEventListener('click', closeRolesModal);
+document.getElementById('rolesOverlay').addEventListener('click', e => { if (e.target === document.getElementById('rolesOverlay')) closeRolesModal(); });
+document.getElementById('btnAssignRole').addEventListener('click', assignRole);
+document.getElementById('btnRemoveRole').addEventListener('click', removeRole);
+
+// ── LOBBY ────────────────────────────────────────────────────
+async function loadChips() {
+  const snap = await get(ref(db, 'rooms'));
+  const el = document.getElementById('chips');
+  if (!snap.exists()) { el.innerHTML = '<span class="no-rooms">No rooms yet — create one!</span>'; return; }
+  const rooms = snap.val();
+  // FIX 7: Removed msgCount display to avoid race condition issues
+  el.innerHTML = Object.entries(rooms).map(([name, data]) => {
+    return `<div class="chip" data-room="${esc(name)}"><div class="dot"></div>${esc(name)}</div>`;
+  }).join('') || '<span class="no-rooms">No rooms yet — create one!</span>';
+  el.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => { document.getElementById('jName').value = chip.dataset.room; document.getElementById('jPass').focus(); });
+  });
+}
+
+async function loadSidebarRooms() {
+  const el = document.getElementById('sbRoomList'); if (!el) return;
+  try {
+    const snap = await get(ref(db, 'rooms'));
+    const rooms = snap.exists() ? snap.val() : {};
+    el.innerHTML = Object.keys(rooms).map(name =>
+      `<div class="rc-room ${name === currentRoom ? 'active' : ''}" data-room="${esc(name)}"><span class="rc-hash">#</span>${esc(name)}</div>`
+    ).join('') || '<div class="rc-no-rooms">no rooms yet</div>';
+    el.querySelectorAll('.rc-room').forEach(r => r.addEventListener('click', () => switchRoom(r.dataset.room)));
+  } catch (e) {}
+}
+function switchRoom(name) {
+  if (name === currentRoom) return;
+  leaveRoomSilent();
+  document.getElementById('jName').value = name;
+  if (currentSession) document.getElementById('jUser').value = currentSession.displayName || '';
+  toast('Enter the password to join #' + name);
+  setTimeout(() => document.getElementById('jPass').focus(), 60);
+}
+
+function setLoading(on) {
+  ['btnCreate','btnJoin'].forEach(id => document.getElementById(id).disabled = on);
+  document.getElementById('btnCreate').textContent = on ? 'Working…' : 'Create & Enter →';
+  document.getElementById('btnJoin').textContent = on ? 'Working…' : 'Join Room →';
+}
+
+async function createRoom() {
+  const name = document.getElementById('cName').value.trim().toLowerCase().replace(/\s+/g,'-');
+  const pass = document.getElementById('cPass').value;
+  const user = document.getElementById('cUser').value.trim();
+  if (!name) return toast('Room name required');
+  if (!/^[a-z0-9\-]+$/.test(name)) return toast('Letters, numbers, hyphens only');
+  if (!pass) return toast('Password required');
+  if (!user) return toast('Your name required');
+  setLoading(true);
+  const snap = await get(ref(db, 'rooms/' + name));
+  if (snap.exists()) { setLoading(false); return toast(`"${name}" already exists — join it`); }
+  const salt = generateSalt();
+  const h = await hashRoomPass(pass, salt);
+  await set(ref(db, 'rooms/' + name), { h, salt, created: Date.now() });
+  setLoading(false);
+  enterRoom(name, user);
+}
+
+async function joinRoom() {
+  const name = document.getElementById('jName').value.trim().toLowerCase().replace(/\s+/g,'-');
+  const pass = document.getElementById('jPass').value;
+  const user = document.getElementById('jUser').value.trim();
+  if (!name) return toast('Room name required');
+  if (!pass) return toast('Password required');
+  if (!user) return toast('Your name required');
+  setLoading(true);
+  const snap = await get(ref(db, 'rooms/' + name));
+  if (!snap.exists()) { setLoading(false); return toast(`Room "${name}" not found`); }
+  const roomData = snap.val();
+  let ok = false;
+  if (roomData.salt) {
+    const h = await hashRoomPass(pass, roomData.salt);
+    ok = roomData.h === h;
+  } else {
+    const legacyH = await sha256(pass);
+    ok = roomData.h === legacyH;
+    if (ok) {
+      const salt = generateSalt();
+      const newH = await hashRoomPass(pass, salt);
+      await set(ref(db, 'rooms/' + name + '/salt'), salt);
+      await set(ref(db, 'rooms/' + name + '/h'), newH);
+    }
+  }
+  if (!ok) { setLoading(false); return toast('Wrong password'); }
+  setLoading(false);
+  enterRoom(name, user);
+}
+
+// ── CHAT ─────────────────────────────────────────────────────
+let currentRoom = null, currentUser = null, currentUserRole = null, msgListener = null;
+let muteTimer = null, isMuted = false;
+
+// ── MUTE SYSTEM ──────────────────────────────────────────────
+function applyMute(seconds) {
+  isMuted = true;
+  document.getElementById('msgInput').disabled = true;
+  document.getElementById('btnSend').disabled = true;
+  document.getElementById('muteOverlay').classList.add('active');
+  let remaining = seconds;
+  document.getElementById('muteTimer').textContent = remaining + 's';
+  if (muteTimer) clearInterval(muteTimer);
+  muteTimer = setInterval(() => {
+    remaining--;
+    document.getElementById('muteTimer').textContent = remaining + 's';
+    if (remaining <= 0) {
+      clearInterval(muteTimer); muteTimer = null; isMuted = false;
+      document.getElementById('muteOverlay').classList.remove('active');
+      document.getElementById('msgInput').disabled = false;
+      document.getElementById('btnSend').disabled = false;
+      document.getElementById('msgInput').focus();
+    }
+  }, 1000);
+}
+
+function listenRoomControls(roomName) {
+  const ctrlRef = ref(db, 'controls/' + roomName);
+  onValue(ctrlRef, snap => {
+    if (!snap.exists()) return;
+    const data = snap.val();
+    if (data.mute && data.mute.target === currentUser && data.mute.ts > Date.now() - 60000) {
+      applyMute(data.mute.seconds);
+    }
+    if (data.kick && data.kick.target === currentUser && data.kick.ts > Date.now() - 5000) {
+      toast('You have been kicked from this room.', 'error');
+      setTimeout(() => leaveRoomSilent(), 1200);
+    }
+    if (data.theme && data.theme.color) {
+      applyAccentColor(data.theme.color);
+    }
+  });
+}
+
+function applyAccentColor(color) {
+  document.documentElement.style.setProperty('--accent', color);
+}
+
+// ── THEME ────────────────────────────────────────────────────
+const THEME_PRESETS = [
+  { color: '#39ff9c', label: 'Green' },
+  { color: '#4fc3f7', label: 'Blue' },
+  { color: '#ff6b35', label: 'Orange' },
+  { color: '#ffd700', label: 'Gold' },
+  { color: '#ce93d8', label: 'Purple' },
+  { color: '#ff4081', label: 'Pink' },
+  { color: '#ffffff', label: 'White' },
+  { color: '#f0c040', label: 'Yellow' },
+  { color: '#80cbc4', label: 'Teal' },
+];
+
+function buildThemeSwatches() {
+  const row = document.getElementById('themeSwatches');
+  row.innerHTML = THEME_PRESETS.map(p =>
+    `<div class="theme-swatch" style="background:${p.color}" title="${p.label}" data-color="${p.color}"></div>`
+  ).join('');
+  row.querySelectorAll('.theme-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      document.getElementById('themeHex').value = sw.dataset.color;
+      row.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+      sw.classList.add('active');
+    });
+  });
+}
+
+async function applyThemeForRoom(color) {
+  if (!currentRoom) return;
+  await set(ref(db, 'controls/' + currentRoom + '/theme'), { color, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
+  const el = document.getElementById('themeStatus');
+  el.textContent = '✓ Theme applied for everyone'; el.className = 'roles-status ok';
+  setTimeout(() => { el.className = 'roles-status'; }, 2500);
+}
+
+function openThemeModal() {
+  buildThemeSwatches();
+  document.getElementById('themeHex').value = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  document.getElementById('themeOverlay').classList.add('open');
+}
+function closeThemeModal() { document.getElementById('themeOverlay').classList.remove('open'); }
+document.getElementById('btnOpenTheme').addEventListener('click', openThemeModal);
+document.getElementById('themeClose').addEventListener('click', closeThemeModal);
+document.getElementById('themeOverlay').addEventListener('click', e => { if (e.target === document.getElementById('themeOverlay')) closeThemeModal(); });
+document.getElementById('btnApplyTheme').addEventListener('click', () => {
+  const hex = document.getElementById('themeHex').value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    const el = document.getElementById('themeStatus');
+    el.textContent = 'Enter a valid hex color (#rrggbb)'; el.className = 'roles-status err';
+    setTimeout(() => { el.className = 'roles-status'; }, 2500);
+    return;
+  }
+  applyThemeForRoom(hex);
+  closeThemeModal();
+});
+
+// ── COMMANDS ─────────────────────────────────────────────────
+const OWNER_CMDS = ['/kick <user>', '/mute <user> <sec>', '/deleteroom', '/theme', '/help'];
+const MOD_CMDS   = ['/mute <user> <sec>', '/theme', '/help'];
+const VIP_CMDS   = ['/help'];
+const USER_CMDS  = ['/help'];
+
+async function handleCommand(text) {
+  const parts = text.trim().split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+
+  if (cmd === '/kick') {
+    if (currentUserRole !== 'owner') return toast('Only owner can kick');
+    const target = parts[1];
+    if (!target) return toast('Usage: /kick <username>');
+    await set(ref(db, 'controls/' + currentRoom + '/kick'), { target, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
+    await pushMsg({ type: 'system', text: target + ' was kicked by ' + currentUser });
+    toast('Kicked ' + target, 'success');
+    return;
+  }
+
+  if (cmd === '/mute') {
+    if (currentUserRole !== 'owner' && currentUserRole !== 'mod') return toast('No permission');
+    const target = parts[1];
+    let seconds = parseInt(parts[2]) || 10;
+    if (!target) return toast('Usage: /mute <username> <seconds>');
+    if (currentUserRole === 'mod' && seconds > 30) {
+      seconds = 30;
+      toast('Mods can only mute up to 30s. Capped at 30s.', 'success');
+    }
+    await set(ref(db, 'controls/' + currentRoom + '/mute'), { target, seconds, ts: Date.now(), byUid: auth.currentUser ? auth.currentUser.uid : null });
+    await pushMsg({ type: 'system', text: target + ' was muted for ' + seconds + 's by ' + currentUser });
+    toast('Muted ' + target + ' for ' + seconds + 's', 'success');
+    return;
+  }
+
+  if (cmd === '/deleteroom') {
+    if (currentUserRole !== 'owner') return toast('Only owner can delete rooms');
+    if (!confirm('Delete room "' + currentRoom + '"? This cannot be undone.')) return;
+    const room = currentRoom;
+    await leaveRoomSilent();
+    await remove(ref(db, 'rooms/' + room));
+    await remove(ref(db, 'messages/' + room));
+    await remove(ref(db, 'controls/' + room));
+    toast('Room deleted.', 'success');
+    return;
+  }
+
+  if (cmd === '/theme') {
+    if (currentUserRole !== 'owner' && currentUserRole !== 'mod') return toast('No permission');
+    openThemeModal();
+    return;
+  }
+
+  if (cmd === '/help') {
+    const role = currentUserRole;
+    let lines = [];
+    if (role === 'owner') {
+      lines = [
+        '👑 OWNER COMMANDS',
+        '/kick <user> — remove a user from the room',
+        '/mute <user> <sec> — silence a user for N seconds',
+        '/deleteroom — permanently delete this room',
+        '/theme — change accent color for everyone',
+        '/help — show this list',
+      ];
+    } else if (role === 'mod') {
+      lines = [
+        '🛡 MOD COMMANDS',
+        '/mute <user> <sec> — silence a user (max 30s)',
+        '/theme — change accent color for everyone',
+        '/help — show this list',
+      ];
+    } else if (role === 'vip') {
+      lines = [
+        '⭐ VIP PERKS',
+        'You have a gold name in chat.',
+        '/help — show this list',
+      ];
+    } else {
+      lines = [
+        'You have no special commands.',
+        '/help — show this list',
+      ];
+    }
+    const wrap = document.getElementById('msgs');
+    const helpEl = document.createElement('div');
+    helpEl.className = 'msg system';
+    helpEl.innerHTML = '<div class="bubble" style="color:var(--accent);text-align:left;line-height:1.9;font-size:0.65rem">' +
+      lines.map(l => l.startsWith('/') || l.startsWith('You')
+        ? '<span style="color:var(--muted2)">' + esc(l) + '</span>'
+        : '<span style="color:var(--accent);font-weight:700">' + esc(l) + '</span>'
+      ).join('<br>') +
+      '</div>';
+    wrap.appendChild(helpEl);
+    wrap.scrollTop = wrap.scrollHeight;
+    return;
+  }
+
+  toast('Unknown command: ' + cmd + ' — type /help for commands');
+}
+
+document.getElementById('msgInput').addEventListener('input', function() {
+  const val = this.value;
+  const hint = document.getElementById('cmdHint');
+  if (!val.startsWith('/')) { hint.classList.remove('show'); return; }
+  const cmds = currentUserRole === 'owner' ? OWNER_CMDS : currentUserRole === 'mod' ? MOD_CMDS : currentUserRole === 'vip' ? VIP_CMDS : USER_CMDS;
+  const matches = cmds.filter(c => c.startsWith(val.split(' ')[0]));
+  if (matches.length) { hint.textContent = matches.join('   '); hint.classList.add('show'); }
+  else { hint.classList.remove('show'); }
+});
+
+// ── MENTION NOTIFIER (standalone tab) ─────────────────────────
+function openMentionNotifier() {
+  if (!currentRoom || !currentUser) { toast('Join a room first'); return; }
+
+  const notifTab = window.open('about:blank', '_blank');
+  if (!notifTab) { toast('Popup blocked — please allow popups for this site'); return; }
+
+  // FIX 1: Use textContent in popup to prevent XSS
+  const escJs = s => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '\\x3C');
+  const roomForTab = escJs(currentRoom);
+  const userForTab = escJs(currentUser);
+
+  const doc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Mention Notifier — #${currentRoom.replace(/</g,'&lt;')}</title>
+<style>
+  body { background:#08090a; color:#e8eaed; font-family:'Space Mono',monospace; min-height:100vh; margin:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.75rem; text-align:center; padding:2rem; }
+  h1 { font-size:1rem; letter-spacing:0.1em; text-transform:uppercase; color:#39ff9c; margin:0; }
+  p { font-size:0.7rem; color:#888; margin:0; line-height:1.6; }
+  .status { font-size:0.6rem; color:#555; margin-top:1rem; }
+  .dot { width:6px; height:6px; border-radius:50%; background:#39ff9c; display:inline-block; animation:blink 1.4s infinite; margin-right:0.4rem; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+</style>
+</head>
+<body>
+  <h1><span class="dot"></span>Mention Notifier</h1>
+  <p>Watching <strong style="color:#e8eaed">#<span id="roomName"></span></strong> for mentions of <strong style="color:#e8eaed">@<span id="userName"></span></strong>.<br>Keep this tab open in the background.</p>
+  <div class="status" id="status">starting…</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDN1NehgSktEGdOEABz8igeRosogLOgzYU",
+  authDomain: "project-50a73.firebaseapp.com",
+  databaseURL: "https://project-50a73-default-rtdb.firebaseio.com",
+  projectId: "project-50a73",
+  storageBucket: "project-50a73.firebasestorage.app",
+  messagingSenderId: "395823874797",
+  appId: "1:395823874797:web:a408782869b31984a342e4"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const ROOM = '${roomForTab}';
+const ME = '${userForTab}';
+
+// Safe rendering using textContent
+document.getElementById('roomName').textContent = ROOM;
+document.getElementById('userName').textContent = ME;
+
+function escRe(s) { return s.replace(/[-\/\\^]/g, '\\\\$&').replace(/[.*+?^()|[\\]{}]/g, '\\\\$&'); }
+const mentionRe = new RegExp('(^|[^a-z0-9_])@' + escRe(ME) + '([^a-z0-9_]|$)', 'i');
+
+const statusEl = document.getElementById('status');
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.5);
+  } catch(e) {}
+}
+
+async function requestPerm() {
+  if (!('Notification' in window)) { statusEl.textContent = 'Notifications not supported in this browser.'; return false; }
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') { statusEl.textContent = 'Notifications blocked — enable them in your browser settings.'; return false; }
+  const perm = await Notification.requestPermission();
+  return perm === 'granted';
+}
+
+let seenIds = new Set();
+let firstLoad = true;
+
+requestPerm().then(granted => {
+  statusEl.textContent = granted ? 'listening for mentions…' : 'listening (notifications off — sound only)…';
+  const msgsRef = ref(db, 'messages/' + ROOM);
+  onValue(msgsRef, snap => {
+    if (!snap.exists()) return;
+    snap.forEach(child => {
+      const id = child.key;
+      const val = child.val();
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+      if (firstLoad) return; 
+      if (!val || val.type !== 'user' || val.user === ME) return;
+      if (!val.text || !mentionRe.test(val.text)) return;
+
+      beep();
+      if (Notification.permission === 'granted') {
+        const n = new Notification('Mentioned by ' + val.user, { body: val.text.slice(0, 140) });
+        n.onclick = () => window.focus();
+      }
+      statusEl.textContent = 'last mention: ' + new Date().toLocaleTimeString();
+    });
+    firstLoad = false;
+  });
+});
+<\/script>
+</body>
+</html>`;
+
+  notifTab.document.open();
+  notifTab.document.write(doc);
+  notifTab.document.close();
+}
+
+document.getElementById('btnMentionNotifier').addEventListener('click', openMentionNotifier);
+
+// ── ENTER / LEAVE ROOM ───────────────────────────────────────
+function enterRoom(roomName, username) {
+  currentRoom = roomName;
+  currentUser = username;
+  currentUserRole = currentSession ? currentSession.role : null;
+
+  document.getElementById('lobby').style.display = 'none';
+  document.getElementById('chatroom').style.display = 'flex';
+  document.getElementById('hRoom').textContent = '#' + roomName;
+  document.getElementById('uBadge').textContent = username;
+  document.getElementById('msgInput').placeholder = 'Message #' + roomName;
+  document.getElementById('ubAvatar').textContent = username.charAt(0).toUpperCase();
+  document.getElementById('ubAvatar').setAttribute('style', avatarStyle(username));
+  document.getElementById('ubRole').textContent = currentUserRole || 'member';
+  loadSidebarRooms();
+  document.getElementById('msgInput').disabled = false;
+  document.getElementById('btnSend').disabled = false;
+  document.getElementById('msgInput').focus();
+
+  document.getElementById('btnManageRoles').style.display = currentUserRole === 'owner' ? '' : 'none';
+  document.getElementById('btnOpenTheme').style.display = (currentUserRole === 'owner' || currentUserRole === 'mod') ? '' : 'none';
+
+  const msgsRef = ref(db, 'messages/' + roomName);
+  msgListener = onValue(msgsRef, snap => {
+    const msgs = [];
+    if (snap.exists()) { snap.forEach(child => { const val = child.val(); if (val && val.ts) msgs.push({ id: child.key, ...val }); }); msgs.sort((a,b) => a.ts-b.ts); }
+    renderMsgs(msgs);
+  }, err => {
+    const wrap = document.getElementById('msgs');
+    const status = err && err.httpStatus ? err.httpStatus : '?';
+    const path = err && err.path ? err.path : '?';
+    const body = err && err.body ? err.body : '(no response body)';
+    wrap.innerHTML = `<div class="status-row" style="color:var(--warn);text-align:left;padding:1rem;white-space:pre-wrap;font-family:monospace;font-size:0.7rem">DEBUG — messages fetch failed
+status: ${esc(String(status))}
+path: ${esc(String(path))}
+uid: ${esc(auth.currentUser ? auth.currentUser.uid : 'none')}
+email: ${esc(auth.currentUser ? auth.currentUser.email : 'none')}
+response: ${esc(String(body))}</div>`;
+  });
+
+  listenRoomControls(roomName);
+  pushMsg({ type:'system', text: username + ' joined' });
+}
+
+async function leaveRoom() {
+  if (msgListener) { off(ref(db, 'messages/' + currentRoom)); msgListener = null; }
+  off(ref(db, 'controls/' + currentRoom));
+  await pushMsg({ type:'system', text: currentUser + ' left' });
+  resetChatState();
+}
+
+async function leaveRoomSilent() {
+  if (msgListener) { off(ref(db, 'messages/' + currentRoom)); msgListener = null; }
+  off(ref(db, 'controls/' + currentRoom));
+  resetChatState();
+}
+
+function resetChatState() {
+  currentRoom = null; currentUser = null; currentUserRole = null;
+  if (muteTimer) { clearInterval(muteTimer); muteTimer = null; }
+  isMuted = false;
+  document.getElementById('muteOverlay').classList.remove('active');
+  document.getElementById('chatroom').style.display = 'none';
+  document.getElementById('lobby').style.display = 'flex';
+  document.getElementById('msgInput').disabled = true;
+  document.getElementById('btnSend').disabled = true;
+  ['cName','cPass','jPass'].forEach(id => document.getElementById(id).value = '');
+  loadChips();
+}
+
+async function pushMsg(m) {
+  if (!currentRoom) return;
+  const msgData = { ...m, ts: Date.now() };
+  if (m.type === 'user') {
+    if (currentUserRole) msgData.role = currentUserRole;
+    if (auth.currentUser) msgData.uid = auth.currentUser.uid; 
+  }
+  await push(ref(db, 'messages/' + currentRoom), msgData);
+  // FIX 7: Removed msgCount increment to prevent race conditions
+}
+
+async function sendMsg() {
+  // FIX 2: Enforce mute client-side (must also be enforced via Firebase Rules)
+  if (isMuted) {
+    toast('You are currently muted.');
+    return;
+  }
+  const input = document.getElementById('msgInput');
+  const text = input.value.trim();
+  if (!text || !currentRoom) return;
+  if (!auth.currentUser || !auth.currentUser.emailVerified) {
+    toast('Verify your email before sending messages (check the lobby banner).');
+    return;
+  }
+  input.value = '';
+  document.getElementById('cmdHint').classList.remove('show');
+  input.focus();
+  if (text.startsWith('/')) { await handleCommand(text); return; } 
+  await pushMsg({ type:'user', user: currentUser, text });
+}
+
+// ── DELETE MESSAGE ────────────────────────────────────────────
+async function deleteMessage(msgId) {
+  if (currentUserRole !== 'owner') return;
+  await remove(ref(db, 'messages/' + currentRoom + '/' + msgId));
+}
+
+// ── RENDER MESSAGES (Discord style) ───────────────────────────
+let lastMsgCount = 0;
+function hueFor(name){let h=0;for(const c of String(name))h=(h*31+c.charCodeAt(0))%360;return h;}
+function avatarStyle(name){const h=hueFor(name);return `background:linear-gradient(135deg,hsl(${h},75%,62%),hsl(${(h+45)%360},75%,52%))`;}
+function nameColor(name,role){
+  if(role==='owner')return 'var(--owner)';
+  if(role==='mod')return 'var(--mod)';
+  if(role==='vip')return 'var(--vip)';
+  return `hsl(${hueFor(name)},70%,72%)`;
+}
+
+function renderMsgs(msgs) {
+  const wrap = document.getElementById('msgs');
+  const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 100;
+  lastMsgCount = msgs.length;
+  document.getElementById('hMeta').textContent = msgs.length + ' messages · one chat per room';
+  const isOwner = currentUserRole === 'owner';
+
+  wrap.innerHTML = msgs.length ? msgs.map(m => {
+    if (m.type === 'system') return `<div class="dmsg system"><div class="dtext">— ${esc(m.text)} —</div></div>`;
+    const time = new Date(m.ts).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    const role = m.role || null;
+    const badge = role ? roleBadgeHTML(role) : '';
+    const trash = isOwner ? `<button class="btn-delete-msg" data-id="${esc(m.id)}" title="Delete message">🗑️</button>` : '';
+    return `<div class="dmsg">
+      <div class="davatar" style="${avatarStyle(m.user)}">${esc(m.user.charAt(0).toUpperCase())}</div>
+      <div class="dcontent">
+        <div class="dhead"><span class="dname" style="color:${nameColor(m.user,role)}">${esc(m.user)}</span>${badge}<span class="dtime">${time}</span></div>
+        <div class="dtext">${esc(m.text)}</div>
+      </div>${trash}</div>`;
+  }).join('') : '<div class="status-row">no messages yet — say hello!</div>';
+
+  wrap.querySelectorAll('.btn-delete-msg').forEach(btn => {
+    btn.addEventListener('click', () => deleteMessage(btn.dataset.id));
+  });
+  if (atBottom) wrap.scrollTop = wrap.scrollHeight;
+  renderMembers(msgs);
+}
+
+function renderMembers(msgs) {
+  const panel = document.getElementById('membersPanel'); if (!panel) return;
+  const cutoff = Date.now() - 8 * 60000;
+  const map = {};
+  const touch = (name, ts, role) => {
+    if (!map[name]) map[name] = { last: 0, role: null };
+    if (ts > map[name].last) map[name].last = ts;
+    if (role && !map[name].role) map[name].role = role;
+  };
+  msgs.forEach(m => {
+    if (m.type === 'user') touch(m.user, m.ts, m.role);
+    else { const j = m.text.match(/^(.+) joined$/); if (j) touch(j[1], m.ts, null); }
+  });
+  if (currentUser) touch(currentUser, Date.now(), currentUserRole);
+
+  const order = { owner: 0, mod: 1, vip: 2 };
+  const all = Object.entries(map).map(([name, d]) => ({ name, ...d }));
+  const sortFn = (a, b) => ((order[a.role] ?? 3) - (order[b.role] ?? 3)) || a.name.localeCompare(b.name);
+  const online = all.filter(u => u.last > cutoff).sort(sortFn);
+  const away = all.filter(u => u.last <= cutoff).sort(sortFn);
+  const row = u => `<div class="rc-member${u.last <= cutoff ? ' offline' : ''}">
+    <div class="rc-mavatar" style="${avatarStyle(u.name)}">${esc(u.name.charAt(0).toUpperCase())}</div>
+    <span class="rc-mname" style="color:${nameColor(u.name, u.role)}">${esc(u.name)}</span>${u.role ? roleBadgeHTML(u.role) : ''}</div>`;
+
+  panel.innerHTML =
+    (online.length ? `<div class="rc-mgroup">Online — ${online.length}</div>` + online.map(row).join('') : '') +
+    (away.length ? `<div class="rc-mgroup">Recent — ${away.length}</div>` + away.map(row).join('') : '');
+  document.getElementById('hOnline').textContent = Math.max(1, online.length);
+}
+
+document.getElementById('btnCreate').addEventListener('click', createRoom);
+document.getElementById('btnJoin').addEventListener('click', joinRoom);
+document.getElementById('btnLeave').addEventListener('click', leaveRoom);
+document.getElementById('btnSend').addEventListener('click', sendMsg);
+document.getElementById('msgInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
+['cName','cPass','cUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : createRoom(); }); });
+['jName','jPass','jUser'].forEach((id,i,a) => { document.getElementById(id).addEventListener('keydown', e => { if (e.key==='Enter') i < a.length-1 ? document.getElementById(a[i+1]).focus() : joinRoom(); }); });
+
+// ── INIT ─────────────────────────────────────────────────────
+loadPanicConfig();
+updatePanicIndicator();
+loadSession();
+
+let authReady = false;
+onAuthStateChanged(auth, async (fbUser) => {
+  if (!currentSession) {
+    if (!authReady) { authReady = true; document.getElementById('authScreen').style.display = 'flex'; }
+    return;
+  }
+  if (!fbUser || fbUser.email.toLowerCase() !== currentSession.email.toLowerCase()) {
+    clearSession();
+    if (!authReady) { authReady = true; document.getElementById('authScreen').style.display = 'flex'; }
+    return;
+  }
+  const role = await fetchRole(currentSession.email);
+  currentSession.role = role;
+  sessionStorage.setItem('roomsSession', JSON.stringify(currentSession));
+  if (!authReady) { authReady = true; enterLobby(); }
+});
+
+setInterval(() => { loadChips(); if (currentRoom) loadSidebarRooms(); }, 10000);
+</script>
+</body>
+</html>
