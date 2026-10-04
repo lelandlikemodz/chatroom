@@ -94,7 +94,7 @@ dialog .box{border:0;padding:0;max-width:none}
     <button class="ghost" id="bVer">I verified</button><button class="ghost" id="bResend">Resend</button></div>
   <div class="row">
     <div class="box"><h2>Create room</h2>
-      <input id="cName" placeholder="room-name" maxlength="30"><input id="cPw" type="password" placeholder="Room password">
+      <input id="cName" placeholder="room-name" maxlength="30"><div id="cWarn" class="note"></div><input id="cPw" type="password" placeholder="Room password">
       <button id="bCreate">Create and enter</button></div>
     <div class="box"><h2>Join room</h2>
       <input id="jName" placeholder="room-name" maxlength="30"><input id="jPw" type="password" placeholder="Room password">
@@ -142,7 +142,7 @@ const sha256=async s=>hex(await crypto.subtle.digest('SHA-256',new TextEncoder()
 const newSalt=()=>hex(crypto.getRandomValues(new Uint8Array(16)));
 async function hashPw(p,s){const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(p),'PBKDF2',false,['deriveBits']);
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode(s),iterations:100000,hash:'SHA-256'},k,256))}
-const slug=s=>s.trim().toLowerCase().replace(/\s+/g,'-');
+const slug=s=>s.trim().toLowerCase().replace(/[\s_]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,30);
 const validRoom=n=>/^[a-z0-9-]{1,30}$/.test(n);
 
 let me=null,roles={},rooms={},room=null,unsub=[],globalUnsub=[],signingUp=false,muteUntil=0,muteT,last=0,unread=0,joinedAt=0;
@@ -216,8 +216,11 @@ function renderRooms(){
   names.forEach(n=>{const x=el('div',n===room?'cur':'','# '+n);x.onclick=()=>switchTo(n);s.append(x)});
 }
 async function createRoom(){
+  const raw=$('cName').value.trim();
+  if(raw&&!/^[A-Za-z0-9-]+$/.test(raw))return toast('Room names can only use letters, numbers and hyphens. Please remove other characters.');
+  if(raw&&raw===$('cPw').value)return toast("Don't use your password as the room name. Everyone can see room names.");
   const n=slug($('cName').value),p=$('cPw').value;
-  if(!validRoom(n))return toast('Room name: letters, numbers, hyphens');
+  if(!validRoom(n))return toast('Enter a room name first (letters, numbers, hyphens). The password goes in the box below it.');
   if(!p)return toast('Set a password');
   if(!auth.currentUser.emailVerified)return toast('Verify your email first');
   try{
@@ -240,6 +243,8 @@ async function switchTo(n){
   if(h){try{await set(R('members/'+n+'/'+me.uid),h);return enter(n)}catch{}}
   $('jName').value=n;show('lobby');toast('Enter the password for #'+n);
 }
+$('cName').oninput=()=>{const v=$('cName').value;$('cWarn').textContent=v&&!/^[A-Za-z0-9-]+$/.test(v)?'Only letters, numbers and hyphens. Please remove other characters.':v&&v===$('cPw').value?"Don't use your password as the room name. Everyone can see room names.":''};
+$('cPw').addEventListener('input',()=>$('cName').oninput());
 $('bCreate').onclick=createRoom;
 $('bJoin').onclick=()=>{const n=slug($('jName').value);if(!validRoom(n)||!$('jPw').value)return toast('Room name and password required');joinRoom(n,$('jPw').value)};
 
