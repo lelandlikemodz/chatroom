@@ -15,6 +15,7 @@ h2{font-size:.8rem;font-weight:500;color:var(--dim);margin-bottom:.2rem}
 .row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;width:100%;max-width:780px}
 .row .box{flex:1;min-width:260px;max-width:none}
 input{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:.7rem .9rem;font:inherit;font-size:16px;outline:none;transition:border-color .15s}
+input.pw{-webkit-text-security:disc;text-security:disc}
 input:focus{border-color:#666}input::placeholder{color:#555}
 button{font:inherit;font-weight:600;background:var(--fg);color:var(--bg);border:1px solid var(--fg);border-radius:var(--r);padding:.65rem 1rem;cursor:pointer;transition:opacity .15s}
 button:hover{opacity:.85}
@@ -32,7 +33,7 @@ button:disabled{opacity:.4;cursor:default}
 .bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;justify-content:center;color:var(--dim)}
 #who{color:var(--fg);font-weight:600}
 #chat{flex-direction:column;height:100dvh}
-.top{display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:.75rem;padding:.7rem 1rem;padding-right:6rem;border-bottom:1px solid var(--line)}
 .top b{flex:1;font-size:1.05rem;letter-spacing:-.01em}
 .body{flex:1;display:flex;min-height:0}
 .side{width:210px;border-right:1px solid var(--line);padding:1rem .6rem;overflow-y:auto}
@@ -65,22 +66,126 @@ dialog::backdrop{background:rgba(0,0,0,.8)}
 dialog .box{border:0;padding:0;max-width:none}
 @media(max-width:700px){.side{display:none}}
 @media(max-width:900px){.side.r{display:none}}
+
+/* console */
+#cBtn{position:fixed;top:8px;right:8px;z-index:99999;background:#fff;color:#000;border:1px solid #fff;border-radius:8px;padding:.3rem .7rem;font:600 12px system-ui;cursor:pointer}
+#cPanel{position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.96);display:none;flex-direction:column;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#ddd}
+#cPanel.on{display:flex}
+#cHead{display:flex;gap:.5rem;align-items:center;padding:8px 90px 8px 12px;border-bottom:1px solid #333}
+#cHead b{flex:1;font:600 13px system-ui}
+#cHead button{background:none;color:#fff;border:1px solid #444;border-radius:6px;padding:.25rem .6rem;font:12px system-ui;cursor:pointer}
+#cLog{flex:1;overflow:auto;padding:8px 12px;user-select:text}
+#cLog div{white-space:pre-wrap;word-break:break-word;padding:2px 0;border-bottom:1px solid #151515}
+#cLog .t{color:#666}#cLog .error{color:#ff6b6b}#cLog .warn{color:#ffd166}
+#cLog .act{color:#7fd1ff}#cLog .net{color:#9be28f}#cLog .sys{color:#c9a7ff}
 </style></head><body>
+
+<button id="cBtn">Console</button>
+<div id="cPanel">
+  <div id="cHead"><b>Console</b><button id="cCopy">Copy</button><button id="cClear">Clear</button><button id="cClose">Close</button></div>
+  <div id="cLog"></div>
+</div>
+<script>
+(()=>{
+const MAX=1500,logs=[],$=id=>document.getElementById(id);
+const clean=s=>String(s).replace(/key=[A-Za-z0-9_\-]+/g,'key=***');
+const fmt=a=>{try{
+  if(a instanceof Error)return a.stack||a.message;
+  if(a&&typeof a==='object')return JSON.stringify(a,(k,v)=>v instanceof Error?v.message:v);
+  return String(a)}catch{return String(a)}};
+const stamp=()=>{const d=new Date();return d.toLocaleTimeString([],{hour12:false})+'.'+String(d.getMilliseconds()).padStart(3,'0')};
+function draw(line){
+  const box=$('cLog'),pn=$('cPanel');if(!box||!pn||!pn.classList.contains('on'))return;
+  const d=document.createElement('div'),t=document.createElement('span'),m=document.createElement('span');
+  t.className='t';t.textContent=line.t+'  ';d.className=line.cls;m.textContent='['+line.cls+'] '+line.msg;d.append(t,m);
+  const stick=box.scrollHeight-box.scrollTop-box.clientHeight<60;
+  box.append(d);while(box.childElementCount>MAX)box.firstChild.remove();
+  if(stick)box.scrollTop=box.scrollHeight;
+}
+function add(cls,msg){
+  const line={t:stamp(),cls,msg:clean(msg)};
+  logs.push(line);if(logs.length>MAX)logs.shift();
+  draw(line);
+}
+const replay=()=>{const box=$('cLog');if(!box)return;box.replaceChildren();logs.forEach(draw)};
+
+['log','info','warn','error','debug'].forEach(k=>{
+  const o=console[k].bind(console);
+  console[k]=(...a)=>{o(...a);add(k==='warn'?'warn':k==='error'?'error':'sys',a.map(fmt).join(' '))};
+});
+addEventListener('error',e=>{
+  if(e.target&&e.target!==window&&(e.target.src||e.target.href))add('error','Resource failed: '+(e.target.src||e.target.href));
+  else add('error',(e.message||'Error')+' @ '+(e.filename||'')+':'+(e.lineno||0)+':'+(e.colno||0)+(e.error&&e.error.stack?'\n'+e.error.stack:''));
+},true);
+addEventListener('unhandledrejection',e=>{const r=e.reason;add('error','Unhandled rejection: '+(r&&(r.code?r.code+' — ':'')+(r&&r.message||fmt(r))))});
+addEventListener('securitypolicyviolation',e=>add('error','CSP blocked: '+e.blockedURI+' ('+e.violatedDirective+')'));
+addEventListener('online',()=>add('sys','Network: online'));
+addEventListener('offline',()=>add('error','Network: offline'));
+document.addEventListener('visibilitychange',()=>add('act','Tab '+(document.hidden?'hidden':'visible')));
+
+const of=window.fetch;
+window.fetch=async function(i,o){
+  const url=typeof i==='string'?i:(i&&i.url)||'',m=(o&&o.method)||(i&&i.method)||'GET',t0=performance.now();
+  add('net','→ '+m+' '+url);
+  try{const r=await of.apply(this,arguments);add(r.ok?'net':'error','← '+r.status+' '+url+' ('+Math.round(performance.now()-t0)+'ms)');return r}
+  catch(e){add('error','✗ '+m+' '+url+' — '+e.message);throw e}
+};
+const ox=XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open=function(m,u){add('net','XHR '+m+' '+u);this.addEventListener('loadend',()=>add(this.status>=400||!this.status?'error':'net','XHR ← '+this.status+' '+u));return ox.apply(this,arguments)};
+const OW=window.WebSocket;
+window.WebSocket=function(u,p){const w=p?new OW(u,p):new OW(u);add('net','WS open '+u);
+  w.addEventListener('open',()=>add('net','WS connected'));w.addEventListener('close',e=>add('warn','WS closed '+e.code));w.addEventListener('error',()=>add('error','WS error'));return w};
+window.WebSocket.prototype=OW.prototype;Object.assign(window.WebSocket,{CONNECTING:0,OPEN:1,CLOSING:2,CLOSED:3});
+
+const who=el=>{if(!el||!el.tagName)return '?';
+  return el.tagName.toLowerCase()+(el.id?'#'+el.id:'')+(el.className&&typeof el.className==='string'&&!el.id?'.'+el.className.trim().split(/\s+/)[0]:'')};
+const inPanel=el=>el&&el.closest&&(el.closest('#cPanel')||el.id==='cBtn');
+document.addEventListener('click',e=>{if(inPanel(e.target))return;
+  const t=e.target.closest('button,a,.chip,.side div,input')||e.target;
+  add('act','click '+who(t)+((t.textContent||'').trim()&&t.tagName!=='INPUT'?' "'+t.textContent.trim().slice(0,40)+'"':''))},true);
+const inT=new WeakMap();
+document.addEventListener('input',e=>{const t=e.target;if(inPanel(t))return;
+  clearTimeout(inT.get(t));
+  inT.set(t,setTimeout(()=>add('act','input '+who(t)+(t.classList.contains('pw')?' (password, length '+t.value.length+')':' = "'+String(t.value).slice(0,60)+'"')),700))},{capture:true,passive:true});
+document.addEventListener('change',e=>{if(!inPanel(e.target))add('act','change '+who(e.target))},true);
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!=='Escape'&&e.key!=='Tab')return;if(inPanel(e.target))return;add('act','key '+e.key+' in '+who(e.target))},{capture:true,passive:true});
+document.addEventListener('submit',e=>add('act','submit '+who(e.target)),true);
+
+window.addEventListener('DOMContentLoaded',()=>{
+  const watch=(id,label)=>{const n=$(id);if(!n)return;let last='';
+    new MutationObserver(()=>{const v=(n.textContent||'').trim();if(v&&v!==last)add('sys',label+': '+v);last=v}).observe(n,{childList:true,characterData:true,subtree:true})};
+  watch('toast','toast');watch('aNote','auth note');watch('cWarn','create warn');watch('mute','mute');watch('online','online');
+  ['auth','lobby','chat'].forEach(id=>{const n=$(id);if(!n)return;
+    new MutationObserver(()=>{if(n.classList.contains('on'))add('sys','view → '+id)}).observe(n,{attributes:true,attributeFilter:['class']})});
+  add('sys','Console ready · '+navigator.userAgent);
+  add('sys','Context: top='+(window.top===window)+' · secure='+isSecureContext+' · cookies='+navigator.cookieEnabled+' · url='+location.href);
+  try{localStorage.setItem('_t','1');localStorage.removeItem('_t');add('sys','localStorage: ok')}catch(e){add('warn','localStorage blocked: '+e.message)}
+  const p=$('cPanel');
+  $('cBtn').onclick=()=>{p.classList.toggle('on');if(p.classList.contains('on')){replay();$('cLog').scrollTop=$('cLog').scrollHeight}};
+  $('cClose').onclick=()=>p.classList.remove('on');
+  $('cClear').onclick=()=>{logs.length=0;$('cLog').replaceChildren()};
+  $('cCopy').onclick=async()=>{const txt=logs.map(l=>l.t+' ['+l.cls+'] '+l.msg).join('\n');
+    try{await navigator.clipboard.writeText(txt);$('cCopy').textContent='Copied'}catch{const r=document.createRange();r.selectNodeContents($('cLog'));getSelection().removeAllRanges();getSelection().addRange(r);$('cCopy').textContent='Selected'}
+    setTimeout(()=>$('cCopy').textContent='Copy',1200)};
+  replay();
+});
+})();
+</script>
 
 <div id="auth" class="view on">
   <h1>ROOMS</h1>
   <div class="box">
     <div class="tabs"><button id="tIn" class="on">Sign in</button><button id="tUp">Create account</button></div>
     <div id="fIn" class="box" style="padding:0;border:0;max-width:none">
-      <input id="siEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="siPw" type="password" placeholder="Password" autocomplete="current-password">
+      <input id="siEmail" type="text" inputmode="email" name="x-e1" placeholder="Email" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+      <input id="siPw" class="pw" type="text" name="x-p1" placeholder="Password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
       <button id="bIn">Sign in</button>
       <button id="bReset" class="link" style="align-self:flex-start">Forgot password?</button>
     </div>
     <div id="fUp" class="box" style="padding:0;border:0;max-width:none;display:none">
-      <input id="suEmail" type="email" placeholder="Email" autocomplete="email">
-      <input id="suName" placeholder="Display name (letters, numbers, _ -)" maxlength="20" autocomplete="off">
-      <input id="suPw" type="password" placeholder="Password (8+ characters)" autocomplete="new-password">
+      <input id="suEmail" type="text" inputmode="email" name="x-e2" placeholder="Email" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+      <input id="suName" name="x-n" placeholder="Display name (letters, numbers, _ -)" maxlength="20" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+      <input id="suPw" class="pw" type="text" name="x-p2" placeholder="Password (8+ characters)" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
       <button id="bUp">Create account</button>
     </div>
     <div id="aNote" class="note"></div>
@@ -94,10 +199,10 @@ dialog .box{border:0;padding:0;max-width:none}
     <button class="ghost" id="bVer">I verified</button><button class="ghost" id="bResend">Resend</button></div>
   <div class="row">
     <div class="box"><h2>Create room</h2>
-      <input id="cName" placeholder="room-name" maxlength="30"><div id="cWarn" class="note"></div><input id="cPw" type="password" placeholder="Room password">
+      <input id="cName" placeholder="room-name" maxlength="30"><div id="cWarn" class="note"></div><input id="cPw" class="pw" type="text" name="x-p3" placeholder="Room password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
       <button id="bCreate">Create and enter</button></div>
     <div class="box"><h2>Join room</h2>
-      <input id="jName" placeholder="room-name" maxlength="30"><input id="jPw" type="password" placeholder="Room password">
+      <input id="jName" placeholder="room-name" maxlength="30"><input id="jPw" class="pw" type="text" name="x-p4" placeholder="Room password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
       <button id="bJoin">Join</button></div>
   </div>
   <div class="box" style="max-width:780px"><h2>Rooms</h2><div id="chips" class="chips"></div></div>
@@ -132,9 +237,9 @@ const OWNER='lb6486262@gmail.com';
 const $=id=>document.getElementById(id);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 const R=p=>ref(db,p);
-const show=v=>['auth','lobby','chat'].forEach(i=>$(i).classList.toggle('on',i===v));
+const show=v=>{console.info('view →',v);['auth','lobby','chat'].forEach(i=>$(i).classList.toggle('on',i===v))};
 let tt;const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2800)};
-const errMsg=e=>({'auth/invalid-credential':'Wrong email or password','auth/email-already-in-use':'Email already registered','auth/weak-password':'Password too weak','auth/too-many-requests':'Too many attempts. Wait and retry','auth/invalid-email':'Invalid email'}[e.code]||e.message||'Something went wrong');
+const errMsg=e=>{console.error('Error:',e&&e.code?e.code+' — '+(e.message||''):e);return ({'auth/invalid-credential':'Wrong email or password','auth/email-already-in-use':'Email already registered','auth/weak-password':'Password too weak','auth/too-many-requests':'Too many attempts. Wait and retry','auth/invalid-email':'Invalid email','auth/missing-password':'Type your password manually (autofill blocked)','auth/network-request-failed':'Network blocked or offline'}[e.code]||e.message||'Something went wrong')};
 const note=m=>$('aNote').textContent=m||'';
 
 const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
@@ -152,7 +257,11 @@ const isOwner=()=>roles[me?.uid]==='owner',isStaff=()=>isOwner()||roles[me?.uid]
 const tab=t=>{$('tIn').classList.toggle('on',t==='in');$('tUp').classList.toggle('on',t==='up');$('fIn').style.display=t==='in'?'':'none';$('fUp').style.display=t==='up'?'':'none';note()};
 $('tIn').onclick=()=>tab('in');$('tUp').onclick=()=>tab('up');
 async function signIn(){
-  try{note('Signing in…');await signInWithEmailAndPassword(auth,$('siEmail').value.trim().toLowerCase(),$('siPw').value)}catch(e){note(errMsg(e))}
+  const em=$('siEmail').value.trim().toLowerCase(),pw=$('siPw').value;
+  console.info('signIn: email length',em.length,'· password length',pw.length);
+  if(!em)return note('Enter your email');
+  if(!pw)return note('Password is empty. Type it manually (autofill is blocked here)');
+  try{note('Signing in…');await signInWithEmailAndPassword(auth,em,pw);console.info('signIn: success')}catch(e){note(errMsg(e))}
 }
 async function signUp(){
   const email=$('suEmail').value.trim().toLowerCase(),name=$('suName').value.trim(),pw=$('suPw').value;
@@ -169,19 +278,20 @@ async function signUp(){
   }catch(e){signingUp=false;note(errMsg(e))}
 }
 $('bIn').onclick=signIn;$('bUp').onclick=signUp;
-$('siPw').onkeydown=e=>e.key==='Enter'&&signIn();
+$('siPw').addEventListener('keydown',e=>{if(e.key==='Enter')signIn()});
+$('siEmail').addEventListener('keydown',e=>{if(e.key==='Enter')$('siPw').focus()});
 $('bReset').onclick=async()=>{const m=$('siEmail').value.trim();if(!m)return note('Enter your email first');
   try{await sendPasswordResetEmail(auth,m);note('Reset email sent')}catch(e){note(errMsg(e))}};
 $('bOut').onclick=()=>signOut(auth);
 
-onAuthStateChanged(auth,u=>{if(signingUp)return;if(u)boot(u).catch(e=>{note(errMsg(e));show('auth')});else{teardown();show('auth')}});
+onAuthStateChanged(auth,u=>{console.info('auth state:',u?'signed in as '+u.email:'signed out');if(signingUp)return;if(u)boot(u).catch(e=>{note(errMsg(e));show('auth')});else{teardown();show('auth')}});
 
 async function ensureOwner(){
   if(me.email===OWNER&&auth.currentUser.emailVerified)await set(R('roles/'+me.uid),'owner').catch(()=>{});
 }
 async function boot(user){
   let s;
-  try{s=await get(R('users/'+user.uid))}catch{await signOut(auth);return note('Database denied access. Publish database.rules.json in Firebase → Realtime Database → Rules.')}
+  try{s=await get(R('users/'+user.uid))}catch(e){console.error('boot: users read denied',e&&e.code);await signOut(auth);return note('Database denied access. Publish database.rules.json in Firebase → Realtime Database → Rules.')}
   if(!s.exists()){
     const name=(prompt('Pick a display name (letters, numbers, _ -)')||'').trim();
     if(!/^[\w-]{2,20}$/.test(name)){await signOut(auth);return note('Name must be 2–20 letters, numbers, _ or -')}
@@ -189,6 +299,7 @@ async function boot(user){
     catch{await signOut(auth);return note('Name taken or database denied. Try another name.')}
   }
   me={uid:user.uid,name:s.val().name,email:(user.email||'').toLowerCase()};
+  console.info('boot: ready as',me.name,'· verified:',user.emailVerified);
   $('who').textContent=me.name;
   $('verify').style.display=user.emailVerified?'none':'flex';
   await ensureOwner();
@@ -197,14 +308,14 @@ async function boot(user){
   globalUnsub.forEach(f=>f());
   globalUnsub=[
     onValue(R('roles'),s=>{roles=s.val()||{};refreshBadges()}),
-    onValue(R('rooms'),s=>{rooms=s.val()||{};renderRooms()},()=>{})
+    onValue(R('rooms'),s=>{rooms=s.val()||{};renderRooms()},e=>console.error('rooms listener:',e&&e.code))
   ];
   show('lobby');
 }
 function teardown(){stopRoom();globalUnsub.forEach(f=>f());globalUnsub=[];me=null;roles={};rooms={}}
 $('bVer').onclick=async()=>{await reload(auth.currentUser);await auth.currentUser.getIdToken(true);
   if(auth.currentUser.emailVerified){$('verify').style.display='none';await ensureOwner();toast('Email verified')}else toast('Not verified yet. Check spam too.')};
-$('bResend').onclick=()=>sendEmailVerification(auth.currentUser).then(()=>toast('Verification email sent')).catch(()=>toast('Try again shortly'));
+$('bResend').onclick=()=>sendEmailVerification(auth.currentUser).then(()=>toast('Verification email sent')).catch(e=>{console.error('resend:',e&&e.code);toast('Try again shortly')});
 
 // ── rooms ──
 function renderRooms(){
@@ -228,14 +339,14 @@ async function createRoom(){
     await set(R('roomKeys/'+n),h);
     await set(R('rooms/'+n),{salt,by:me.uid,created:serverTimestamp()});
     await set(R('members/'+n+'/'+me.uid),h);
-    keys['k_'+n]=h;enter(n);
-  }catch{toast('Could not create. The name may be taken.')}
+    keys['k_'+n]=h;console.info('room created:',n);enter(n);
+  }catch(e){console.error('createRoom:',e&&e.code,e&&e.message);toast('Could not create. The name may be taken.')}
 }
 async function joinRoom(n,p){
-  const r=await get(R('rooms/'+n)).catch(()=>null);
+  const r=await get(R('rooms/'+n)).catch(e=>{console.error('joinRoom read:',e&&e.code);return null});
   if(!r||!r.exists())return toast('Room not found');
   const h=r.val().salt?await hashPw(p,r.val().salt):await sha256(p);
-  try{await set(R('members/'+n+'/'+me.uid),h);keys['k_'+n]=h;enter(n)}catch{toast('Wrong password')}
+  try{await set(R('members/'+n+'/'+me.uid),h);keys['k_'+n]=h;console.info('joined room:',n);enter(n)}catch(e){console.error('joinRoom denied:',e&&e.code);toast('Wrong password')}
 }
 async function switchTo(n){
   if(n===room)return;
@@ -251,12 +362,13 @@ $('bJoin').onclick=()=>{const n=slug($('jName').value);if(!validRoom(n)||!$('jPw
 // ── chat ──
 function enter(n){
   stopRoom();room=n;joinedAt=Date.now()-3000;unread=0;
+  console.info('enter room:',n);
   $('rName').textContent='#'+n;$('msgs').replaceChildren();$('msgInput').disabled=false;
   show('chat');renderRooms();$('msgInput').focus();
   const q=query(R('messages/'+n),limitToLast(100));
-  const bad=()=>{if(room===n){toast('Lost access to #'+n);leave()}};
+  const bad=e=>{console.error('messages listener:',e&&e.code);if(room===n){toast('Lost access to #'+n);leave()}};
   const pr=R('presence/'+n+'/'+me.uid);
-  set(pr,me.name).catch(()=>{});onDisconnect(pr).remove();
+  set(pr,me.name).catch(e=>console.error('presence set:',e&&e.code));onDisconnect(pr).remove();
   unsub=[
     onChildAdded(q,s=>addMsg(s.key,s.val()),bad),
     onChildRemoved(q,s=>$('m_'+s.key)?.remove()),
@@ -271,7 +383,7 @@ function stopRoom(){
   unsub.forEach(f=>f());unsub=[];room=null;muteUntil=0;clearInterval(muteT);
   $('mute').classList.remove('on');document.title='ROOMS';
 }
-function leave(){stopRoom();show('lobby');renderRooms()}
+function leave(){console.info('leave room');stopRoom();show('lobby');renderRooms()}
 $('bLeave').onclick=leave;
 
 function badge(uid){const r=roles[uid];if(!r)return null;return el('span','b '+r,r)}
@@ -284,7 +396,7 @@ function addMsg(id,m){
   const h=el('div','h'),slot=el('span');slot.dataset.uid=m.uid;const b=badge(m.uid);if(b)slot.append(b);
   h.append(el('span','n',m.name||m.user),slot,el('span','t',new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})));
   d.append(h,el('div','p',m.text));
-  const x=el('button','x','×');x.title='Delete';x.onclick=()=>remove(R('messages/'+room+'/'+id)).catch(()=>toast('Not allowed'));
+  const x=el('button','x','×');x.title='Delete';x.onclick=()=>remove(R('messages/'+room+'/'+id)).catch(e=>{console.error('delete msg:',e&&e.code);toast('Not allowed')});
   d.append(x);box.append(d);
   if(stick)box.scrollTop=box.scrollHeight;
   if(document.hidden&&m.uid!==me.uid&&m.ts>joinedAt)document.title='('+(++unread)+') ROOMS';
@@ -310,14 +422,15 @@ async function send(){
   i.value='';
   if(t[0]==='/')return cmd(t);
   last=Date.now();
-  try{await push(R('messages/'+room),{uid:me.uid,name:me.name,text:t,ts:serverTimestamp()})}
-  catch(e){i.value=t;toast('Send failed: '+(e.code||e.message))}
+  try{await push(R('messages/'+room),{uid:me.uid,name:me.name,text:t,ts:serverTimestamp()});console.info('message sent to #'+room)}
+  catch(e){i.value=t;console.error('send failed:',e&&e.code,e&&e.message);toast('Send failed: '+(e.code||e.message))}
 }
 $('bSend').onclick=send;
 $('msgInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
 
 async function uidOf(n){const s=await get(R('names/'+String(n||'').toLowerCase()));return s.exists()?s.val():null}
 async function cmd(t){
+  console.info('command:',t);
   const [c,a,b]=t.split(/\s+/);
   if(c==='/help')return toast(isOwner()?'/mute name sec · /kick name · /role name mod|vip|none · /delroom':isStaff()?'/mute name sec (max 30) · /kick name':'No commands available');
   if(!isStaff())return toast('No permission');
@@ -336,7 +449,7 @@ async function cmd(t){
       return toast('Room deleted');
     }
     toast('Unknown command. Try /help');
-  }catch{toast('Not allowed')}
+  }catch(e){console.error('command failed:',e&&e.code);toast('Not allowed')}
 }
 
 // ── panic key ──
