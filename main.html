@@ -15,7 +15,8 @@ h2{font-size:.8rem;font-weight:500;color:var(--dim);margin-bottom:.2rem}
 .row{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;width:100%;max-width:780px}
 .row .box{flex:1;min-width:260px;max-width:none}
 input{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:var(--r);padding:.7rem .9rem;font:inherit;font-size:16px;outline:none;transition:border-color .15s}
-input.pw{-webkit-text-security:disc;text-security:disc}
+@font-face{font-family:'text-security-disc';src:url(data:font/woff2;base64,d09GMgABAAAAAAMUAAoAAAAACAAAAALLAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAAggAKcHILBgABNgIkAwYEIAWJSAcvG0gHEZWcjBRfHdjGjMcejbPCigr7qKAHNeanOj7Jm5KeeqEcD9+vvZ677xMHVQqMjhWDjCyoTl1ZdXydAWAZ2bLKbACcs9Xnq2pytVoloiXHDrIGgeGktwDL77mDVWev4kIiuu5b/b3qu0lI2lLou/73KenUDvDhB0trgOEEPNYLpQMHqHSyBMRj25J66GeNQQ+RI2SIyNESUhqL2yiSXdUD294/E0cs9hkA/uflf8vz9ncbYNPWzbtsJM/TaI406vyxBZEDmAhCUkNDE/wB+oB3OcF3jD9DMP4jHycEwkCGDAkJBRRQRBEllFBGGRVUUEUVNdRQRx0NNNBEEy200EYbHXR+J2SggAwTMRVQACE6HczWr33H5bra1bHZYtel6UeaPr0j02cBa28QSCze+/ej7bV/KymNwcfXD++N5Xb7GWeyMpIMBDRDcRsRs8NiWEn/07sFMh0B6CpQdzWJQhXLMRCmWo5MywEkq53LLjwoOuVudslFxXCUULcnRtDM7pDWa1laqGmwxdif01IR1Kvb6cHeJ8xp2BlrGeGXSh55cJp+pUh7fkIZUuYa5arc++C6vu8GYXQ713ltclCzMsR99Yaa9i/Xao1BxhJENQK/SHVq1a/davW6ZaOKhKxrv1KRk1V4lbnJKvlR6ZVatovSDDNtTHA2gj5ZCA3sO1PNMfcYQcgjdEAK4bzcwN5iHp+7iaFi3F5FTW7lg3xGpVbk9CtQShkcY7u2MDzDUhVgZOpCxcb35WWxv16Gdng6DXdqOT0Xa3yC8X43Wfq6YSwxk0fmJ6yXoP6DD3kxOsv2tY69T0pO6cz2rDAqF648Yru1IAwZ9vYOWAt8FKQsl4FJIhZLWcBz8fkWfdEV6Eg1MVIlzTtA5DJaCz8TnC8kYyMkRbaB8sUbwp7zNVvy5YSclouyrPR/1M0/kF+p/wkAABmRVU7qqPq5awA=) format('woff2')}
+input.pw{-webkit-text-security:disc;font-family:'text-security-disc',system-ui}
 input:focus{border-color:#666}input::placeholder{color:#555}
 button{font:inherit;font-weight:600;background:var(--fg);color:var(--bg);border:1px solid var(--fg);border-radius:var(--r);padding:.65rem 1rem;cursor:pointer;transition:opacity .15s}
 button:hover{opacity:.85}
@@ -250,7 +251,7 @@ async function hashPw(p,s){const k=await crypto.subtle.importKey('raw',new TextE
 const slug=s=>s.trim().toLowerCase().replace(/[\s_]+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,30);
 const validRoom=n=>/^[a-z0-9-]{1,30}$/.test(n);
 
-let me=null,roles={},rooms={},room=null,unsub=[],globalUnsub=[],signingUp=false,muteUntil=0,muteT,last=0,unread=0,joinedAt=0;
+let me=null,roles={},rooms={},room=null,unsub=[],globalUnsub=[],signingUp=false,muteUntil=0,muteT,last=0,unread=0,joinedAt=0,roomDc=null;
 const isOwner=()=>roles[me?.uid]==='owner',isStaff=()=>isOwner()||roles[me?.uid]==='mod';
 
 // ── auth ──
@@ -335,6 +336,7 @@ async function createRoom(){
   if(!p)return toast('Set a password');
   if(!auth.currentUser.emailVerified)return toast('Verify your email first');
   try{
+    if((await get(R('rooms/'+n))).exists())return toast('That room name is already taken');
     const salt=newSalt(),h=await hashPw(p,salt);
     await set(R('roomKeys/'+n),h);
     await set(R('rooms/'+n),{salt,by:me.uid,created:serverTimestamp()});
@@ -357,7 +359,7 @@ async function switchTo(n){
 $('cName').oninput=()=>{const v=$('cName').value;$('cWarn').textContent=v&&!/^[A-Za-z0-9-]+$/.test(v)?'Only letters, numbers and hyphens. Please remove other characters.':v&&v===$('cPw').value?"Don't use your password as the room name. Everyone can see room names.":''};
 $('cPw').addEventListener('input',()=>$('cName').oninput());
 $('bCreate').onclick=createRoom;
-$('bJoin').onclick=()=>{const n=slug($('jName').value);if(!validRoom(n)||!$('jPw').value)return toast('Room name and password required');joinRoom(n,$('jPw').value)};
+$('bJoin').onclick=()=>{const n=slug($('jName').value),p=$('jPw').value;if(!validRoom(n)||!p)return toast('Room name and password required');if(p.toLowerCase()===n)return toast("Don't use your password as the room name. Everyone can see room names.");joinRoom(n,p)};
 
 // ── chat ──
 function enter(n){
@@ -368,17 +370,19 @@ function enter(n){
   const q=query(R('messages/'+n),limitToLast(100));
   const bad=e=>{console.error('messages listener:',e&&e.code);if(room===n){toast('Lost access to #'+n);leave()}};
   const pr=R('presence/'+n+'/'+me.uid);
-  set(pr,me.name).catch(e=>console.error('presence set:',e&&e.code));onDisconnect(pr).remove();
+  roomDc=onDisconnect(pr);roomDc.remove().catch(()=>{});
+  set(pr,me.name).catch(e=>console.error('presence set:',e&&e.code));
   unsub=[
     onChildAdded(q,s=>addMsg(s.key,s.val()),bad),
     onChildRemoved(q,s=>$('m_'+s.key)?.remove()),
     onValue(R('presence/'+n),s=>renderMembers(s.val()||{}),()=>{}),
-    onValue(R('members/'+n+'/'+me.uid),s=>{if(room===n&&!s.exists()){toast('You were removed from #'+n);leave()}},()=>{}),
+    onValue(R('members/'+n+'/'+me.uid),s=>{if(room===n&&!s.exists()){delete keys['k_'+n];toast('You were removed from #'+n);leave()}},()=>{}),
     onValue(R('mutes/'+n+'/'+me.uid),s=>{muteUntil=s.val()||0;tickMute()},()=>{}),
-    onValue(R('rooms/'+n),s=>{if(room===n&&!s.exists()){toast('Room deleted');leave()}},()=>{})
+    onValue(R('rooms/'+n),s=>{if(room===n&&!s.exists()){delete keys['k_'+n];toast('Room deleted');leave()}},()=>{})
   ];
 }
 function stopRoom(){
+  if(roomDc){roomDc.cancel().catch(()=>{});roomDc=null}
   if(room&&me)remove(R('presence/'+room+'/'+me.uid)).catch(()=>{});
   unsub.forEach(f=>f());unsub=[];room=null;muteUntil=0;clearInterval(muteT);
   $('mute').classList.remove('on');document.title='ROOMS';
@@ -391,7 +395,7 @@ function refreshBadges(){document.querySelectorAll('[data-uid]').forEach(s=>{s.r
 function addMsg(id,m){
   if(m.type==='system')return;
   const box=$('msgs'),stick=box.scrollHeight-box.scrollTop-box.clientHeight<80;
-  const ping=me&&m.uid!==me.uid&&String(m.text).toLowerCase().includes('@'+me.name.toLowerCase());
+  const ping=me&&m.uid!==me.uid&&String(m.text).toLowerCase().split(/[^a-z0-9_-]+/).includes('@'+me.name.toLowerCase());
   const d=el('div','msg'+(ping?' ping':''));d.id='m_'+id;
   const h=el('div','h'),slot=el('span');slot.dataset.uid=m.uid;const b=badge(m.uid);if(b)slot.append(b);
   h.append(el('span','n',m.name||m.user),slot,el('span','t',new Date(m.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})));
@@ -419,9 +423,8 @@ async function send(){
   if(!auth.currentUser.emailVerified)return toast('Verify your email first');
   if(Date.now()<muteUntil)return toast('You are muted');
   if(Date.now()-last<800)return toast('Slow down');
-  i.value='';
+  i.value='';last=Date.now();
   if(t[0]==='/')return cmd(t);
-  last=Date.now();
   try{await push(R('messages/'+room),{uid:me.uid,name:me.name,text:t,ts:serverTimestamp()});console.info('message sent to #'+room)}
   catch(e){i.value=t;console.error('send failed:',e&&e.code,e&&e.message);toast('Send failed: '+(e.code||e.message))}
 }
@@ -444,7 +447,7 @@ async function cmd(t){
       return toast('Usage: /role name mod|vip|none');
     }
     if(c==='/delroom'&&isOwner()&&confirm('Delete #'+room+' permanently?')){
-      const n=room;stopRoom();show('lobby');
+      const n=room;stopRoom();delete keys['k_'+n];show('lobby');
       for(const p of ['messages','presence','mutes','members','rooms','roomKeys'])await remove(R(p+'/'+n));
       return toast('Room deleted');
     }
@@ -459,15 +462,16 @@ const held=new Set();let rec=null;
 const keyName=k=>k.replace(/^(Digit|Key)/,'');
 const fire=()=>{if(/^https?:\/\//i.test(panic.url))location.href=panic.url;else{window.close();location.href='about:blank'}};
 addEventListener('keydown',e=>{
-  if(rec){e.preventDefault();rec.add(e.code);$('bRec').textContent='Keys: '+[...rec].map(keyName).join(' + ');return}
+  if(rec){if(e.target&&e.target.id==='pUrl')return;if(e.key==='Escape')return;e.preventDefault();held.add(e.code);rec.add(e.code);$('bRec').textContent='Keys: '+[...rec].map(keyName).join(' + ');return}
   held.add(e.code);
   if(panic.keys.length&&panic.keys.every(k=>held.has(k)))fire();
 });
-addEventListener('keyup',e=>{if(rec&&rec.size){panic.keys=[...rec];rec=null}held.delete(e.code)});
+addEventListener('keyup',e=>{held.delete(e.code);if(rec&&rec.size&&!held.size){panic.keys=[...rec];rec=null;toast('Panic keys saved')}});
 addEventListener('blur',()=>held.clear());
 const openPanic=()=>{$('bRec').textContent='Keys: '+(panic.keys.map(keyName).join(' + ')||'none');$('pUrl').value=panic.url;$('dlg').showModal()};
-$('bRec').onclick=()=>{rec=new Set();$('bRec').textContent='Press keys…'};
+$('bRec').onclick=()=>{rec=new Set();$('bRec').textContent='Press keys… (release to save)'};
 $('bSavePanic').onclick=()=>{rec=null;panic.url=$('pUrl').value.trim();try{localStorage.setItem('panic',JSON.stringify(panic))}catch{}$('dlg').close();toast('Saved')};
 $('bCloseDlg').onclick=()=>{rec=null;$('dlg').close()};
+$('dlg').addEventListener('close',()=>{rec=null});
 $('bPanic').onclick=openPanic;$('bPanic2').onclick=openPanic;
 </script></body></html>
